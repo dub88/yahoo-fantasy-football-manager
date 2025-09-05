@@ -22,6 +22,7 @@ export default async function handler(request, response) {
     console.log('YAHOO_CLIENT_ID exists:', !!clientId);
     console.log('YAHOO_CLIENT_SECRET exists:', !!clientSecret);
     console.log('YAHOO_REDIRECT_URI exists:', !!redirectUri);
+    console.log('YAHOO_REDIRECT_URI value:', redirectUri);
     
     if (!clientId || !clientSecret || !redirectUri) {
       console.error('Missing environment variables');
@@ -30,6 +31,11 @@ export default async function handler(request, response) {
       console.error('YAHOO_REDIRECT_URI:', redirectUri ? 'SET' : 'MISSING');
       return response.status(500).json({ error: 'Server configuration error' });
     }
+    
+    // Log the exact redirect URI being sent
+    console.log('About to send token exchange request');
+    console.log('Redirect URI being sent:', redirectUri);
+    console.log('Code length:', code?.length || 0);
     
     // Exchange authorization code for access token
     const tokenResponse = await fetch('https://api.login.yahoo.com/oauth2/get_token', {
@@ -47,8 +53,10 @@ export default async function handler(request, response) {
     
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Token exchange failed:', errorText);
-      return response.status(tokenResponse.status).json({ error: 'Failed to exchange token' });
+      console.error('Token exchange failed with status:', tokenResponse.status);
+      console.error('Token exchange error response:', errorText);
+      console.error('Expected redirect URI:', redirectUri);
+      return response.status(tokenResponse.status).json({ error: 'Failed to exchange token', details: errorText });
     }
     
     const tokenData = await tokenResponse.json();

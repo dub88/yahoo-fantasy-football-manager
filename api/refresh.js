@@ -43,8 +43,9 @@ export default async function handler(request, response) {
     
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Token refresh failed:', errorText);
-      return response.status(tokenResponse.status).json({ error: 'Failed to refresh token' });
+      console.error('Token refresh failed with status:', tokenResponse.status);
+      console.error('Token refresh error response:', errorText);
+      return response.status(tokenResponse.status).json({ error: 'Failed to refresh token', details: errorText });
     }
     
     const tokenData = await tokenResponse.json();
