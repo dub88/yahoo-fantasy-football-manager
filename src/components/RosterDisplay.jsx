@@ -21,9 +21,41 @@ const RosterDisplay = ({ teamKey }) => {
     try {
       const data = await fetchUserTeams();
       console.log('User teams data:', data);
-      // Extract teams data from the response
-      // This will depend on the actual structure of the Yahoo API response
-      setTeams(data.teams || []);
+      
+      // Handle XML response from Yahoo API
+      if (typeof data === 'string' && data.includes('<?xml')) {
+        // Parse XML response
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(data, 'text/xml');
+        
+        // Extract teams from XML
+        const teamsNodes = xmlDoc.getElementsByTagName('team');
+        const teamsArray = [];
+        
+        for (let i = 0; i < teamsNodes.length; i++) {
+          const teamNode = teamsNodes[i];
+          const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
+          const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
+          
+          // Get league info
+          const leagueNode = teamNode.getElementsByTagName('league')[0];
+          const leagueName = leagueNode?.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
+          
+          teamsArray.push({
+            team_key: teamKey,
+            name: teamName,
+            league: { name: leagueName }
+          });
+        }
+        
+        setTeams(teamsArray);
+      } else if (data && typeof data === 'object') {
+        // Handle JSON response if it's not XML
+        setTeams(data.teams || []);
+      } else {
+        setTeams([]);
+      }
+      
       setView('select-team');
     } catch (err) {
       setError('Failed to fetch user teams. Please try again.');
@@ -39,9 +71,40 @@ const RosterDisplay = ({ teamKey }) => {
     try {
       const data = await fetchTeamRoster(teamKeyToUse);
       console.log('Roster data:', data);
-      // Extract roster data from the response
-      // This will depend on the actual structure of the Yahoo API response
-      setRoster(data.roster || []);
+      
+      // Handle XML response from Yahoo API
+      if (typeof data === 'string' && data.includes('<?xml')) {
+        // Parse XML response
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(data, 'text/xml');
+        
+        // Extract roster from XML
+        const rosterNodes = xmlDoc.getElementsByTagName('player');
+        const rosterArray = [];
+        
+        for (let i = 0; i < rosterNodes.length; i++) {
+          const playerNode = rosterNodes[i];
+          const playerName = playerNode.getElementsByTagName('full')[0]?.textContent || 'Unknown Player';
+          const playerPosition = playerNode.getElementsByTagName('primary_position')[0]?.textContent || 'N/A';
+          const playerTeam = playerNode.getElementsByTagName('editorial_team_abbr')[0]?.textContent || 'N/A';
+          const playerStatus = playerNode.getElementsByTagName('status')[0]?.textContent || 'Active';
+          
+          rosterArray.push({
+            name: { full: playerName },
+            primary_position: playerPosition,
+            editorial_team_abbr: playerTeam,
+            status: playerStatus
+          });
+        }
+        
+        setRoster(rosterArray);
+      } else if (data && typeof data === 'object') {
+        // Handle JSON response if it's not XML
+        setRoster(data.roster || []);
+      } else {
+        setRoster([]);
+      }
+      
       setView('roster');
     } catch (err) {
       setError('Failed to fetch roster data. Please try again.');
@@ -82,7 +145,10 @@ const RosterDisplay = ({ teamKey }) => {
       <div className="roster-display bg-white rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-bold mb-4">Select Your Team</h2>
         {teams.length === 0 ? (
-          <p className="text-gray-500">No teams found. Please make sure you're logged into Yahoo Fantasy Sports.</p>
+          <div>
+            <p className="text-gray-500">No teams found. Please make sure you're logged into Yahoo Fantasy Sports.</p>
+            <p className="text-gray-400 text-sm mt-2">If you're sure you have teams, try logging out and logging back in.</p>
+          </div>
         ) : (
           <div className="space-y-4">
             <p className="text-gray-600">Please select a team to view its roster:</p>

@@ -80,8 +80,10 @@ export default async function handler(request, response) {
     
     if (contentType && contentType.includes('application/xml')) {
       data = await yahooResponse.text();
+      console.log('Yahoo API XML response preview:', data.substring(0, 500) + (data.length > 500 ? '...' : ''));
     } else {
       data = await yahooResponse.json();
+      console.log('Yahoo API JSON response preview:', JSON.stringify(data, null, 2).substring(0, 500) + (JSON.stringify(data, null, 2).length > 500 ? '...' : ''));
     }
     
     console.log('Yahoo API response data length:', typeof data === 'string' ? data.length : 'JSON');

@@ -26,7 +26,7 @@ export const fetchUserGames = async () => {
     }
     
     const result = await response.json();
-    console.log('Yahoo API proxy success for user games, data length:', typeof result.data === 'string' ? result.data.length : 'JSON');
+    console.log('Yahoo API proxy success for user games, data:', result);
     return result.data;
   } catch (error) {
     console.error('Error fetching user games:', error);
@@ -60,7 +60,7 @@ export const fetchUserTeams = async () => {
     }
     
     const result = await response.json();
-    console.log('Yahoo API proxy success for user teams, data length:', typeof result.data === 'string' ? result.data.length : 'JSON');
+    console.log('Yahoo API proxy success for user teams, data:', result);
     return result.data;
   } catch (error) {
     console.error('Error fetching user teams:', error);
