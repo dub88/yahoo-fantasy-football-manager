@@ -8,6 +8,8 @@ export const fetchTeamRoster = async (teamKey) => {
       throw new Error('No access token available');
     }
     
+    console.log('Fetching team roster with token and teamKey:', { teamKey });
+    
     const response = await fetch(`/api/yahoo?endpoint=team/${teamKey}/roster`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -15,11 +17,16 @@ export const fetchTeamRoster = async (teamKey) => {
       }
     });
     
+    console.log('Yahoo API proxy response:', { status: response.status });
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Yahoo API proxy error:', errorData);
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
     }
     
     const result = await response.json();
+    console.log('Yahoo API proxy success, data length:', typeof result.data === 'string' ? result.data.length : 'JSON');
     return result.data;
   } catch (error) {
     console.error('Error fetching team roster:', error);
@@ -43,7 +50,8 @@ export const fetchPlayerStats = async (playerKey) => {
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
     }
     
     const result = await response.json();
@@ -70,7 +78,8 @@ export const fetchLeagueStandings = async (leagueKey) => {
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
     }
     
     const result = await response.json();
@@ -97,7 +106,8 @@ export const fetchPlayerOwnership = async (leagueKey) => {
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
     }
     
     const result = await response.json();
