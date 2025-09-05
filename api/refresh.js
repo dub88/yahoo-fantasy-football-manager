@@ -13,8 +13,8 @@ export default async function handler(request, response) {
   
   try {
     // Get environment variables
-    const clientId = process.env.VITE_YAHOO_CLIENT_ID;
-    const clientSecret = process.env.VITE_YAHOO_CLIENT_SECRET;
+    const clientId = process.env.YAHOO_CLIENT_ID;
+    const clientSecret = process.env.YAHOO_CLIENT_SECRET;
     
     if (!clientId || !clientSecret) {
       console.error('Missing environment variables');

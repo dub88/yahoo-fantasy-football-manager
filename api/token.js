@@ -1,5 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
-
 // Vercel serverless function to handle Yahoo OAuth token exchange
 export default async function handler(request, response) {
   // Only allow POST requests
@@ -15,9 +13,9 @@ export default async function handler(request, response) {
   
   try {
     // Get environment variables
-    const clientId = process.env.VITE_YAHOO_CLIENT_ID;
-    const clientSecret = process.env.VITE_YAHOO_CLIENT_SECRET;
-    const redirectUri = process.env.VITE_YAHOO_REDIRECT_URI;
+    const clientId = process.env.YAHOO_CLIENT_ID;
+    const clientSecret = process.env.YAHOO_CLIENT_SECRET;
+    const redirectUri = process.env.YAHOO_REDIRECT_URI;
     
     if (!clientId || !clientSecret || !redirectUri) {
       console.error('Missing environment variables');
