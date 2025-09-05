@@ -17,32 +17,20 @@ export const initiateOAuth = () => {
   window.location.href = authUrl;
 };
 
-// Exchange authorization code for access token
+// Exchange authorization code for access token using serverless function
 export const exchangeCodeForToken = async (code) => {
-  const clientId = import.meta.env.VITE_YAHOO_CLIENT_ID;
-  const clientSecret = import.meta.env.VITE_YAHOO_CLIENT_SECRET;
-  const redirectUri = import.meta.env.VITE_YAHOO_REDIRECT_URI;
-  
-  if (!clientId || !clientSecret || !redirectUri) {
-    throw new Error('Missing OAuth configuration. Please check your environment variables.');
-  }
-  
   try {
-    const response = await fetch('https://api.login.yahoo.com/oauth2/get_token', {
+    const response = await fetch('/api/token', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + btoa(`${clientId}:${clientSecret}`)
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        code: code,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code'
-      })
+      body: JSON.stringify({ code })
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
     
     const data = await response.json();
@@ -61,29 +49,26 @@ export const exchangeCodeForToken = async (code) => {
 
 // Refresh access token
 export const refreshAccessToken = async () => {
-  const clientId = import.meta.env.VITE_YAHOO_CLIENT_ID;
-  const clientSecret = import.meta.env.VITE_YAHOO_CLIENT_SECRET;
   const refreshToken = localStorage.getItem('yahoo_refresh_token');
   
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('Missing OAuth configuration or refresh token.');
+  if (!refreshToken) {
+    throw new Error('Missing refresh token.');
   }
   
   try {
-    const response = await fetch('https://api.login.yahoo.com/oauth2/get_token', {
+    // For refresh token, we still need to make a server-side call
+    // We'll create another serverless function for this
+    const response = await fetch('/api/refresh', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + btoa(`${clientId}:${clientSecret}`)
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token'
-      })
+      body: JSON.stringify({ refresh_token: refreshToken })
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
     
     const data = await response.json();
