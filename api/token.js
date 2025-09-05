@@ -17,8 +17,17 @@ export default async function handler(request, response) {
     const clientSecret = process.env.YAHOO_CLIENT_SECRET;
     const redirectUri = process.env.YAHOO_REDIRECT_URI;
     
+    // Debug logging
+    console.log('Environment variables check:');
+    console.log('YAHOO_CLIENT_ID exists:', !!clientId);
+    console.log('YAHOO_CLIENT_SECRET exists:', !!clientSecret);
+    console.log('YAHOO_REDIRECT_URI exists:', !!redirectUri);
+    
     if (!clientId || !clientSecret || !redirectUri) {
       console.error('Missing environment variables');
+      console.error('YAHOO_CLIENT_ID:', clientId ? 'SET' : 'MISSING');
+      console.error('YAHOO_CLIENT_SECRET:', clientSecret ? 'SET' : 'MISSING');
+      console.error('YAHOO_REDIRECT_URI:', redirectUri ? 'SET' : 'MISSING');
       return response.status(500).json({ error: 'Server configuration error' });
     }
     

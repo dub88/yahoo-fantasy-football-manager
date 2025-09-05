@@ -16,8 +16,15 @@ export default async function handler(request, response) {
     const clientId = process.env.YAHOO_CLIENT_ID;
     const clientSecret = process.env.YAHOO_CLIENT_SECRET;
     
+    // Debug logging
+    console.log('Refresh environment variables check:');
+    console.log('YAHOO_CLIENT_ID exists:', !!clientId);
+    console.log('YAHOO_CLIENT_SECRET exists:', !!clientSecret);
+    
     if (!clientId || !clientSecret) {
-      console.error('Missing environment variables');
+      console.error('Missing environment variables for refresh');
+      console.error('YAHOO_CLIENT_ID:', clientId ? 'SET' : 'MISSING');
+      console.error('YAHOO_CLIENT_SECRET:', clientSecret ? 'SET' : 'MISSING');
       return response.status(500).json({ error: 'Server configuration error' });
     }
     
