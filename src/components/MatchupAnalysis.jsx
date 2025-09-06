@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchTeamRosterWithDetails, fetchCurrentMatchup } from '../utils/yahooApi';
+import { fetchTeamRosterWeekly, fetchCurrentMatchup } from '../utils/yahooApi';
 
 const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
   const [teamData, setTeamData] = useState(null);
@@ -66,10 +66,10 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
           onOpponentChange(opponentTeamKey);
         }
         
-        // Fetch both team rosters in parallel
+        // Fetch both team rosters in parallel for the current week (includes player_points)
         const [teamRoster, opponentRoster] = await Promise.all([
-          fetchTeamRosterWithDetails(teamKey),
-          fetchTeamRosterWithDetails(opponentTeamKey)
+          fetchTeamRosterWeekly(teamKey, week),
+          fetchTeamRosterWeekly(opponentTeamKey, week)
         ]);
         
         // Process team rosters
@@ -80,7 +80,7 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
         setOpponentData(opponentInfo);
       } else {
         // No opponent found (bye week?)
-        const teamRoster = await fetchTeamRosterWithDetails(teamKey);
+        const teamRoster = await fetchTeamRosterWeekly(teamKey, week);
         const teamInfo = processTeamRoster(teamRoster, 'Your Team');
         setTeamData(teamInfo);
         setOpponentData(null);
@@ -126,16 +126,72 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
       
       for (let i = 0; i < playerNodes.length; i++) {
         const playerNode = playerNodes[i];
-        const nameNode = playerNode.getElementsByTagName('name')[0];
-        const positionNode = playerNode.getElementsByTagName('display_position')[0] || 
-                            playerNode.getElementsByTagName('position')[0];
-        const pointsNode = playerNode.getElementsByTagName('points')[0];
+        const pNameNode = playerNode.getElementsByTagName('name')[0];
+        // Prefer selected_position for lineup slot; fallback to display_position/position
+        const selectedPosNode = playerNode.getElementsByTagName('selected_position')[0];
+        const displayPosNode = playerNode.getElementsByTagName('display_position')[0] || playerNode.getElementsByTagName('position')[0];
+        // Yahoo weekly roster returns player_points with a total attribute
+        const playerPointsNode = playerNode.getElementsByTagName('player_points')[0];
         
-        if (nameNode && positionNode) {
-          const name = nameNode.getElementsByTagName('full')[0]?.textContent || 
-                      nameNode.textContent;
-          const position = positionNode.textContent;
-          const projectedPoints = pointsNode ? parseFloat(pointsNode.textContent) : 0;
+        if (pNameNode && (selectedPosNode || displayPosNode)) {
+          const name = pNameNode.getElementsByTagName('full')[0]?.textContent || 
+                      pNameNode.textContent;
+          const selectedSlot = selectedPosNode?.getElementsByTagName('position')[0]?.textContent || null;
+          const position = selectedSlot || displayPosNode?.textContent || 'UTIL';
+          
+          // Skip bench/IR/NA when showing projected starting roster
+          if (['BN','IR','IRR','NA'].includes(position)) {
+            continue;
+          }
+          
+          let projectedPoints = 0;
+          // 1) Preferred: <player_points total="X" /> or nested <total> node
+          if (playerPointsNode) {
+            const totalAttr = playerPointsNode.getAttribute('total');
+            if (totalAttr && !isNaN(parseFloat(totalAttr))) {
+              projectedPoints = parseFloat(totalAttr);
+            } else {
+              const totalNode = playerPointsNode.getElementsByTagName('total')[0];
+              if (totalNode && totalNode.textContent && !isNaN(parseFloat(totalNode.textContent))) {
+                projectedPoints = parseFloat(totalNode.textContent);
+              } else if (playerPointsNode.textContent && !isNaN(parseFloat(playerPointsNode.textContent))) {
+                projectedPoints = parseFloat(playerPointsNode.textContent);
+              }
+            }
+          }
+
+          // 2) Fallback: <points> node sometimes present on player
+          if (!projectedPoints || isNaN(projectedPoints)) {
+            const pointsNode = playerNode.getElementsByTagName('points')[0];
+            if (pointsNode && pointsNode.textContent && !isNaN(parseFloat(pointsNode.textContent))) {
+              projectedPoints = parseFloat(pointsNode.textContent);
+            }
+          }
+
+          // 3) Fallback: inside <player_stats><stats><stat><stat_id>900</stat_id><value>X</value>
+          if (!projectedPoints || isNaN(projectedPoints)) {
+            const playerStatsNode = playerNode.getElementsByTagName('player_stats')[0];
+            if (playerStatsNode) {
+              const statNodes = playerStatsNode.getElementsByTagName('stat');
+              for (let s = 0; s < statNodes.length; s++) {
+                const statNode = statNodes[s];
+                const statIdNode = statNode.getElementsByTagName('stat_id')[0];
+                const valueNode = statNode.getElementsByTagName('value')[0];
+                if (statIdNode && (statIdNode.textContent === '900' || statIdNode.textContent === 'PTS')) {
+                  const val = valueNode?.textContent;
+                  if (val && !isNaN(parseFloat(val))) {
+                    projectedPoints = parseFloat(val);
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          if (!projectedPoints) {
+            // Last resort: ensure numeric 0
+            projectedPoints = 0;
+          }
           
           totalProjectedPoints += projectedPoints;
           

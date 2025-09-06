@@ -374,6 +374,54 @@ export const fetchPlayerNews = async (playerKeys) => {
 };
 
 // Fetch team roster with player details
+export const fetchTeamRosterWeekly = async (teamKey, week) => {
+  try {
+    const token = await getAccessToken();
+    if (!token) {
+      throw new Error('No access token available');
+    }
+
+    // First attempt: weekly roster with player stats (includes player_points when projections are available)
+    const endpoint1 = `/api/yahoo?endpoint=team/${teamKey}/roster/players/stats;type=week;week=${week};is_projected=true`;
+    let response = await fetch(endpoint1, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
+    }
+
+    let result = await response.json();
+    let xmlData = result.data;
+
+    // If the response doesn't include player_points, try a fallback endpoint
+    if (typeof xmlData === 'string' && !xmlData.includes('<player_points')) {
+      const endpoint2 = `/api/yahoo?endpoint=team/${teamKey}/roster;type=week;week=${week};is_projected=true`;
+      const resp2 = await fetch(endpoint2, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (resp2.ok) {
+        const result2 = await resp2.json();
+        if (typeof result2.data === 'string' && result2.data.includes('<player_points')) {
+          return result2.data;
+        }
+      }
+    }
+
+    return xmlData;
+  } catch (error) {
+    console.error('Error fetching weekly team roster:', error);
+    throw error;
+  }
+};
+
 export const fetchTeamRosterWithDetails = async (teamKey) => {
   try {
     const token = await getAccessToken();
