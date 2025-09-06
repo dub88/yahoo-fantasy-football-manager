@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { exchangeCodeForToken } from '../../utils/auth';
+import { exchangeCodeForToken, getOAuthState } from '../../utils/auth';
 
 const Callback = () => {
   const [loading, setLoading] = useState(true);
@@ -21,10 +21,20 @@ const Callback = () => {
       // Check for error parameters
       const error = queryParams.get('error') || hashParams.get('error');
       const errorDescription = queryParams.get('error_description') || hashParams.get('error_description');
+      const state = queryParams.get('state') || hashParams.get('state');
       
       if (error) {
         console.error(`OAuth error: ${error} - ${errorDescription}`);
         setError(`Authentication error: ${errorDescription || error}. Please try again.`);
+        setLoading(false);
+        return;
+      }
+      
+      // Verify state parameter to prevent CSRF
+      const storedState = getOAuthState();
+      if (!storedState || storedState !== state) {
+        console.error('OAuth state mismatch');
+        setError('Invalid authentication state. Please try logging in again.');
         setLoading(false);
         return;
       }
@@ -42,13 +52,20 @@ const Callback = () => {
       console.log('Authorization code found:', code.substring(0, 5) + '...');
 
       try {
-        console.log('Authorization code found, exchanging for token');
+        console.log('Exchanging authorization code for access token...');
         await exchangeCodeForToken(code);
+        
+        // Clear the URL to remove sensitive data
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Redirect to dashboard on success
         navigate('/dashboard');
       } catch (err) {
         console.error('Error during OAuth callback:', err);
         if (err.message.includes('expired')) {
           setError('The authorization code has expired. Please try logging in again.');
+        } else if (err.message.includes('invalid_grant')) {
+          setError('Invalid authorization code. Please try logging in again.');
         } else {
           setError('Failed to authenticate. Please try again.');
         }

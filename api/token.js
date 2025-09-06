@@ -27,75 +27,82 @@ export default async function handler(request, response) {
     const clientSecret = process.env.YAHOO_CLIENT_SECRET;
     const redirectUri = process.env.YAHOO_REDIRECT_URI;
     
-    // Debug logging
+    // Debug logging (be careful not to log sensitive information in production)
     console.log('Environment variables check:');
     console.log('YAHOO_CLIENT_ID exists:', !!clientId);
-    console.log('YAHOO_CLIENT_SECRET exists:', !!clientSecret);
     console.log('YAHOO_REDIRECT_URI exists:', !!redirectUri);
-    console.log('YAHOO_REDIRECT_URI value:', redirectUri);
     
     if (!clientId || !clientSecret || !redirectUri) {
-      console.error('Missing environment variables');
-      console.error('YAHOO_CLIENT_ID:', clientId ? 'SET' : 'MISSING');
-      console.error('YAHOO_CLIENT_SECRET:', clientSecret ? 'SET' : 'MISSING');
-      console.error('YAHOO_REDIRECT_URI:', redirectUri ? 'SET' : 'MISSING');
-      return response.status(500).json({ error: 'Server configuration error' });
+      console.error('Missing required environment variables');
+      return response.status(500).json({ 
+        error: 'Server configuration error',
+        details: 'Missing required OAuth configuration. Please check your environment variables.'
+      });
     }
     
-    // Log the exact redirect URI being sent
-    console.log('About to send token exchange request');
-    console.log('Redirect URI being sent:', redirectUri);
-    console.log('Code length:', code?.length || 0);
+    console.log('Exchanging authorization code for access token...');
     
     // Exchange authorization code for access token
-    const startTime = Date.now();
-    const tokenResponse = await fetch('https://api.login.yahoo.com/oauth2/get_token', {
+    const tokenUrl = 'https://api.login.yahoo.com/oauth2/get_token';
+    const authHeader = 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    
+    const tokenParams = new URLSearchParams();
+    tokenParams.append('grant_type', 'authorization_code');
+    tokenParams.append('redirect_uri', redirectUri);
+    tokenParams.append('code', code);
+    
+    const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+        'Authorization': authHeader,
+        'User-Agent': 'YahooFantasyManager/1.0',
+        'Accept': 'application/json'
       },
-      body: new URLSearchParams({
-        code: code,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code'
-      })
+      body: tokenParams.toString()
     });
     
-    const endTime = Date.now();
-    console.log('Token exchange request took:', endTime - startTime, 'ms');
+    const responseData = await tokenResponse.json();
     
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
       console.error('Token exchange failed with status:', tokenResponse.status);
-      console.error('Token exchange error response:', errorText);
-      console.error('Expected redirect URI:', redirectUri);
+      console.error('Error details:', responseData);
       
       // Handle specific error cases
       if (tokenResponse.status === 400) {
-        // Check if this is an expired code error
-        if (errorText.includes('invalid_grant') && errorText.includes('expired')) {
+        if (responseData.error === 'invalid_grant') {
           return response.status(400).json({ 
-            error: 'Authorization code expired', 
-            details: 'The authorization code has expired. Please try logging in again.',
-            code_expired: true 
+            error: 'invalid_grant',
+            message: 'The authorization code is invalid or has expired',
+            details: responseData
           });
         }
       }
       
-      return response.status(tokenResponse.status).json({ 
-        error: 'Failed to exchange token', 
-        details: errorText,
-        status: tokenResponse.status
+      return response.status(tokenResponse.status).json({
+        error: responseData.error || 'token_exchange_failed',
+        message: 'Failed to exchange authorization code for access token',
+        details: responseData
       });
     }
     
-    const tokenData = await tokenResponse.json();
+    // Successfully obtained tokens
+    console.log('Successfully obtained tokens');
     
     // Return the token data to the client
-    return response.status(200).json(tokenData);
+    return response.status(200).json({
+      access_token: responseData.access_token,
+      refresh_token: responseData.refresh_token,
+      expires_in: responseData.expires_in,
+      token_type: responseData.token_type
+    });
+    
   } catch (error) {
     console.error('Error in token exchange:', error);
-    return response.status(500).json({ error: 'Internal server error', details: error.message });
+    return response.status(500).json({ 
+      error: 'internal_server_error',
+      message: 'An unexpected error occurred during token exchange',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }
