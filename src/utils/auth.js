@@ -13,7 +13,7 @@ const setOAuthState = (state) => {
 };
 
 // Get the stored state
-const getOAuthState = () => {
+export const getOAuthState = () => {
   const state = sessionStorage.getItem('yahoo_oauth_state');
   sessionStorage.removeItem('yahoo_oauth_state');
   return state;
