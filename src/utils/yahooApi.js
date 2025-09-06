@@ -374,15 +374,16 @@ export const fetchPlayerNews = async (playerKeys) => {
 };
 
 // Fetch team roster with player details
-export const fetchTeamRosterWeekly = async (teamKey, week) => {
+export const fetchTeamRosterWeekly = async (teamKey, week, isProjected = true) => {
   try {
     const token = await getAccessToken();
     if (!token) {
       throw new Error('No access token available');
     }
 
-    // First attempt: weekly roster with player stats (includes player_points when projections are available)
-    const endpoint1 = `/api/yahoo?endpoint=team/${teamKey}/roster/players/stats;type=week;week=${week};is_projected=true`;
+    // First attempt: weekly roster with player stats (includes player_points). Use projection flag if requested.
+    const projectedPart = isProjected ? ';is_projected=true' : '';
+    const endpoint1 = `/api/yahoo?endpoint=team/${teamKey}/roster/players/stats;type=week;week=${week}${projectedPart}`;
     let response = await fetch(endpoint1, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -400,7 +401,7 @@ export const fetchTeamRosterWeekly = async (teamKey, week) => {
 
     // If the response doesn't include player_points, try a fallback endpoint
     if (typeof xmlData === 'string' && !xmlData.includes('<player_points')) {
-      const endpoint2 = `/api/yahoo?endpoint=team/${teamKey}/roster;type=week;week=${week};is_projected=true`;
+      const endpoint2 = `/api/yahoo?endpoint=team/${teamKey}/roster;type=week;week=${week}${projectedPart}`;
       const resp2 = await fetch(endpoint2, {
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -7,6 +7,8 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentWeek, setCurrentWeek] = useState('1');
+  const [selectedWeek, setSelectedWeek] = useState('1');
+  const [isProjected, setIsProjected] = useState(true);
 
   useEffect(() => {
     // When the component mounts or teamKey changes, fetch the current matchup
@@ -41,6 +43,7 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
       const weekEl = xmlDoc.getElementsByTagName('week')[0];
       const week = weekEl ? weekEl.textContent : '1';
       setCurrentWeek(week);
+      setSelectedWeek(week);
       
       // Extract team matchups
       const matchupNodes = xmlDoc.getElementsByTagName('matchup');
@@ -68,8 +71,8 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
         
         // Fetch both team rosters in parallel for the current week (includes player_points)
         const [teamRoster, opponentRoster] = await Promise.all([
-          fetchTeamRosterWeekly(teamKey, week),
-          fetchTeamRosterWeekly(opponentTeamKey, week)
+          fetchTeamRosterWeekly(teamKey, week, isProjected),
+          fetchTeamRosterWeekly(opponentTeamKey, week, isProjected)
         ]);
         
         // Process team rosters
@@ -80,7 +83,7 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
         setOpponentData(opponentInfo);
       } else {
         // No opponent found (bye week?)
-        const teamRoster = await fetchTeamRosterWeekly(teamKey, week);
+        const teamRoster = await fetchTeamRosterWeekly(teamKey, week, isProjected);
         const teamInfo = processTeamRoster(teamRoster, 'Your Team');
         setTeamData(teamInfo);
         setOpponentData(null);
@@ -92,6 +95,43 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
       setLoading(false);
     }
   };
+
+  // Load rosters for a specific week (uses current opponentKey if available)
+  const loadRostersForWeek = async (week) => {
+    if (!teamKey) return;
+    setLoading(true);
+    setError(null);
+    try {
+      if (opponentKey) {
+        const [teamRoster, opponentRoster] = await Promise.all([
+          fetchTeamRosterWeekly(teamKey, week, isProjected),
+          fetchTeamRosterWeekly(opponentKey, week, isProjected)
+        ]);
+        const teamInfo = processTeamRoster(teamRoster, 'Your Team');
+        const opponentInfo = processTeamRoster(opponentRoster, 'Opponent');
+        setTeamData(teamInfo);
+        setOpponentData(opponentInfo);
+      } else {
+        const teamRoster = await fetchTeamRosterWeekly(teamKey, week, isProjected);
+        const teamInfo = processTeamRoster(teamRoster, 'Your Team');
+        setTeamData(teamInfo);
+      }
+    } catch (err) {
+      console.error('Error loading rosters for selected week:', err);
+      setError('Failed to load rosters for the selected week.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // React when user changes week or projected/actual setting
+  useEffect(() => {
+    if (!teamKey) return;
+    if (!selectedWeek) return;
+    // Avoid double fetch on initial mount when we still don't know opponentKey
+    loadRostersForWeek(selectedWeek);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWeek, isProjected, opponentKey, teamKey]);
   
   // Process team roster data into a format we can use
   const processTeamRoster = (rosterData, defaultTeamName) => {
@@ -257,7 +297,37 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
 
   return (
     <div className="matchup-analysis bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold mb-4">Matchup Analysis</h2>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        <h2 className="text-2xl font-bold">Matchup Analysis</h2>
+        <div className="flex items-center gap-3">
+          {/* Projected / Actual toggle */}
+          <div className="flex items-center gap-1">
+            <button
+              className={`yahoo-button ${isProjected ? '' : 'secondary'}`}
+              onClick={() => setIsProjected(true)}
+              type="button"
+            >Projected</button>
+            <button
+              className={`yahoo-button ${!isProjected ? '' : 'secondary'}`}
+              onClick={() => setIsProjected(false)}
+              type="button"
+            >Actual</button>
+          </div>
+          {/* Week selector */}
+          <div className="flex items-center gap-2">
+            <label className="yahoo-label m-0">Week</label>
+            <select
+              className="yahoo-select"
+              value={selectedWeek}
+              onChange={(e) => setSelectedWeek(e.target.value)}
+            >
+              {Array.from({ length: 18 }, (_, i) => String(i + 1)).map((wk) => (
+                <option key={wk} value={wk}>Week {wk}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
       
       {teamData && opponentData ? (
         <div className="space-y-6">
