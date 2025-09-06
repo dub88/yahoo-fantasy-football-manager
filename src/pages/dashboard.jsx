@@ -35,6 +35,12 @@ const Dashboard = () => {
     }
   }, [navigate]);
 
+  // Helper function for league key validation
+  const isValidLeagueKey = (key) => {
+    const leagueKeyRegex = /^\d+\.l\.\d+$/; // Matches 'game_id.l.league_id'
+    return key && leagueKeyRegex.test(key);
+  };
+
   const fetchUserTeamsData = async () => {
     setLoading(true);
     setError(null);
@@ -44,189 +50,80 @@ const Dashboard = () => {
       
       // Handle XML response from Yahoo API
       if (typeof data === 'string' && data.includes('<?xml')) {
-        // Parse XML response
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(data, 'text/xml');
         
-        // Log the XML structure for debugging
+        // Log XML for debugging
         console.log('XML Document:', xmlDoc);
         
-        // Extract teams from XML - look for teams in different possible locations
-        let teamsNodes = xmlDoc.getElementsByTagName('team');
+        // Extract users, games, leagues, and teams
+        const usersNodes = xmlDoc.getElementsByTagName('user');
+        const teamsArray = [];
+        const leaguesArray = [];
         
-        // If we don't find teams directly, look in games/leagues
-        if (teamsNodes.length === 0) {
-          const gameNodes = xmlDoc.getElementsByTagName('game');
-          for (let i = 0; i < gameNodes.length; i++) {
-            const leagueNodes = gameNodes[i].getElementsByTagName('league');
-            for (let j = 0; j < leagueNodes.length; j++) {
-              const leagueTeams = leagueNodes[j].getElementsByTagName('team');
-              if (leagueTeams.length > 0) {
-                teamsNodes = leagueTeams;
-                break;
+        for (let u = 0; u < usersNodes.length; u++) {
+          const userNode = usersNodes[u];
+          const gamesNodes = userNode.getElementsByTagName('game');
+          for (let g = 0; g < gamesNodes.length; g++) {
+            const gameNode = gamesNodes[g];
+            const leaguesNodes = gameNode.getElementsByTagName('league');
+            for (let l = 0; l < leaguesNodes.length; l++) {
+              const leagueNode = leaguesNodes[l];
+              const leagueKey = leagueNode.getElementsByTagName('league_key')[0]?.textContent || '';
+              const leagueName = leagueNode.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
+              const season = leagueNode.getElementsByTagName('season')[0]?.textContent || '';
+              const isFinished = leagueNode.getElementsByTagName('is_finished')[0]?.textContent === '1';
+              
+              // Validate league key before adding
+              if (isValidLeagueKey(leagueKey)) {
+                leaguesArray.push({ league_key: leagueKey, name: leagueName, season: season, is_finished: isFinished });
+              } else {
+                console.log('Invalid league key found:', leagueKey, ' - Skipping this league');
+              }
+              
+              // Extract teams from this league only if league key is valid
+              if (isValidLeagueKey(leagueKey)) {
+                const teamsNodes = leagueNode.getElementsByTagName('team');
+                for (let t = 0; t < teamsNodes.length; t++) {
+                  const teamNode = teamsNodes[t];
+                  const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
+                  const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
+                  
+                  // Only add teams with valid keys
+                  if (teamKey) {
+                    teamsArray.push({
+                      team_key: teamKey,
+                      name: teamName,
+                      league_key: leagueKey,
+                      league_name: leagueName,
+                      season: season,
+                      is_finished: isFinished
+                    });
+                  }
+                }
+              } else {
+                console.log('Skipping team extraction for invalid league key:', leagueKey);
               }
             }
-            if (teamsNodes.length > 0) break;
           }
         }
         
-        const teamsArray = [];
-        const leaguesMap = new Map(); // Use Map to store leagues by season
+        // Set teams and leagues with valid data
+        setTeams(teamsArray);
+        setLeagues(leaguesArray);
         
-        // Get current date for determining current season
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear();
-        const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
-        
-        // Determine current fantasy football season
-        // Fantasy football seasons typically run from August/September to January/February
-        // If it's before August, we're likely in the off-season of the previous year
-        const currentFantasySeason = currentMonth < 8 ? currentYear - 1 : currentYear;
-        
-        console.log('Current date:', { currentYear, currentMonth, currentFantasySeason });
-        
-        console.log('Found', teamsNodes.length, 'teams in XML');
-        
-        for (let i = 0; i < teamsNodes.length; i++) {
-          const teamNode = teamsNodes[i];
-          
-          // Log the team node for debugging
-          console.log('Team node', i, ':', teamNode);
-          
-          const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
-          const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
-          
-          // Get league info - try different possible locations
-          let leagueNode = teamNode.getElementsByTagName('league')[0];
-          
-          // If no league node directly in team, try to find it in parent
-          if (!leagueNode) {
-            // Look for league in the team's parent structure
-            let parent = teamNode.parentNode;
-            while (parent && parent.tagName !== 'league') {
-              parent = parent.parentNode;
-            }
-            leagueNode = parent;
-          }
-          
-          console.log('League node', i, ':', leagueNode);
-          
-          let leagueKey = '';
-          let leagueName = 'Unknown League';
-          let season = '';
-          let isFinished = false;
-          
-          if (leagueNode) {
-            leagueKey = leagueNode.getElementsByTagName('league_key')[0]?.textContent || '';
-            leagueName = leagueNode.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
-            season = leagueNode.getElementsByTagName('season')[0]?.textContent || '';
-            isFinished = leagueNode.getElementsByTagName('is_finished')[0]?.textContent === '1';
-          }
-          
-          console.log('Team data:', { teamKey, teamName, leagueKey, leagueName, season, isFinished });
-          
-          // Only add teams with valid keys
-          if (teamKey) {
-            teamsArray.push({
-              team_key: teamKey,
-              name: teamName,
-              league_key: leagueKey,
-              league_name: leagueName,
-              season: season,
-              is_finished: isFinished
-            });
-          }
-          
-          // Add to leagues map, organized by season
-          if (leagueKey && leagueName) {
-            if (!leaguesMap.has(season)) {
-              leaguesMap.set(season, []);
-            }
-            const seasonLeagues = leaguesMap.get(season);
-            // Check if league already exists in this season
-            const existingLeague = seasonLeagues.find(l => l.league_key === leagueKey);
-            if (!existingLeague) {
-              seasonLeagues.push({ 
-                league_key: leagueKey, 
-                name: leagueName, 
-                season: season,
-                is_finished: isFinished
-              });
-            }
-          }
-        }
-        
-        console.log('Processed teams array:', teamsArray);
-        console.log('Processed leagues map:', leaguesMap);
-        
-        // Show all teams (simplified approach)
-        const teamsToShow = teamsArray;
-        
-        // Get all unique leagues
-        const leaguesToShow = [];
-        const leagueKeysAdded = new Set();
-        
-        teamsToShow.forEach(team => {
-          if (team.league_key && !leagueKeysAdded.has(team.league_key)) {
-            const league = {
-              league_key: team.league_key,
-              name: team.league_name || 'Unknown League',
-              season: team.season
-            };
-            leaguesToShow.push(league);
-            leagueKeysAdded.add(team.league_key);
-          }
-        });
-        
-        console.log('Teams to show:', teamsToShow);
-        console.log('Leagues to show:', leaguesToShow);
-        
-        setTeams(teamsToShow);
-        setLeagues(leaguesToShow);
-        
-        // Auto-select a team if we have teams
-        if (teamsToShow.length > 0) {
-          // Try to select the most relevant team
-          let teamToSelect = null;
-          
-          // Prefer active team from current fantasy season
-          const currentSeasonActiveTeams = teamsToShow.filter(team => 
-            team.season && parseInt(team.season) === currentFantasySeason && team.is_finished !== '1'
-          );
-          
-          if (currentSeasonActiveTeams.length > 0) {
-            teamToSelect = currentSeasonActiveTeams[0];
+        // Auto-select a team if available and valid
+        if (teamsArray.length > 0) {
+          const firstTeam = teamsArray[0]; // Select the first valid team
+          setTeamKey(firstTeam.team_key);
+          setLeagueKey(firstTeam.league_key);
+          if (isValidLeagueKey(firstTeam.league_key)) {
+            fetchOpponents(firstTeam.league_key, firstTeam.team_key);
           } else {
-            // Prefer any team from current fantasy season
-            const currentSeasonTeams = teamsToShow.filter(team => 
-              team.season && parseInt(team.season) === currentFantasySeason
-            );
-            
-            if (currentSeasonTeams.length > 0) {
-              teamToSelect = currentSeasonTeams[0];
-            } else {
-              // Just select the first team
-              teamToSelect = teamsToShow[0];
-            }
-          }
-          
-          console.log('Team to select:', teamToSelect);
-          
-          // Only set team key if we found a team to select
-          if (teamToSelect) {
-            setTeamKey(teamToSelect.team_key);
-            setLeagueKey(teamToSelect.league_key || '');
-            
-            // Fetch opponents for the selected league
-            if (teamToSelect.league_key) {
-              fetchOpponents(teamToSelect.league_key, teamToSelect.team_key);
-            }
+            setError('First team has an invalid league key. Cannot fetch opponents.');
           }
         } else {
-          // Clear selections if no teams found
-          setTeamKey('');
-          setLeagueKey('');
-          setOpponents([]);
+          setError('No valid teams found. Please check your API access or data.');
         }
       }
     } catch (err) {
@@ -237,68 +134,47 @@ const Dashboard = () => {
     }
   };
 
-  const fetchOpponents = async (selectedLeagueKey, currentTeamKey) => {
-    try {
-      const data = await fetchLeagueStandings(selectedLeagueKey);
-      console.log('Raw league standings data:', data);
-      
-      // Handle XML response from Yahoo API
-      if (typeof data === 'string' && data.includes('<?xml')) {
-        // Parse XML response
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(data, 'text/xml');
-        
-        // Log the XML structure for debugging
-        console.log('League standings XML Document:', xmlDoc);
-        
-        // Extract teams from XML
-        const teamNodes = xmlDoc.getElementsByTagName('team');
-        const opponentsArray = [];
-        
-        console.log('Found', teamNodes.length, 'teams in league standings XML');
-        
-        for (let i = 0; i < teamNodes.length; i++) {
-          const teamNode = teamNodes[i];
-          
-          // Log the team node for debugging
-          console.log('League team node', i, ':', teamNode);
-          
-          const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
-          const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
-          
-          console.log('League team data:', { teamKey, teamName });
-          
-          // Don't include the user's own team
-          if (teamKey !== currentTeamKey) {
-            opponentsArray.push({
-              team_key: teamKey,
-              name: teamName
-            });
-          }
-        }
-        
-        console.log('Processed opponents array:', opponentsArray);
-        
-        setOpponents(opponentsArray);
-      }
-    } catch (err) {
-      console.error('Error fetching opponents:', err);
-    }
-  };
-
   const handleTeamChange = (e) => {
     const selectedTeamKey = e.target.value;
     setTeamKey(selectedTeamKey);
     
-    // Find the selected team and update league key
     const selectedTeam = teams.find(team => team.team_key === selectedTeamKey);
-    if (selectedTeam) {
+    if (selectedTeam && selectedTeam.league_key && isValidLeagueKey(selectedTeam.league_key)) {
       setLeagueKey(selectedTeam.league_key);
       fetchOpponents(selectedTeam.league_key, selectedTeamKey);
     } else {
-      // Clear league and opponents if no team selected
       setLeagueKey('');
       setOpponents([]);
+      setError('Selected team has an invalid or missing league key. Please select a valid team or refresh.');
+    }
+  };
+
+  const fetchOpponents = async (selectedLeagueKey, currentTeamKey) => {
+    if (!isValidLeagueKey(selectedLeagueKey)) {
+      console.error('Invalid league key for fetching opponents:', selectedLeagueKey);
+      setError('Invalid league key. Cannot fetch opponents. Please ensure a valid league is selected.');
+      return;
+    }
+    try {
+      const data = await fetchLeagueStandings(selectedLeagueKey);
+      if (typeof data === 'string' && data.includes('<?xml')) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(data, 'text/xml');
+        const teamNodes = xmlDoc.getElementsByTagName('team');
+        const opponentsArray = [];
+        for (let i = 0; i < teamNodes.length; i++) {
+          const teamNode = teamNodes[i];
+          const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
+          const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
+          if (teamKey !== currentTeamKey) {
+            opponentsArray.push({ team_key: teamKey, name: teamName });
+          }
+        }
+        setOpponents(opponentsArray);
+      }
+    } catch (err) {
+      console.error('Error fetching opponents:', err);
+      setError('Failed to fetch opponents. Check API status or league key.');
     }
   };
 
