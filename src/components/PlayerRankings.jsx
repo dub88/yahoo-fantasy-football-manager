@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchPlayerOwnership } from '../utils/yahooApi';
+import { fetchPlayerOwnership } from '../utils/yahooApi.js';
 
 const PlayerRankings = ({ leagueKey }) => {
   const [players, setPlayers] = useState([]);

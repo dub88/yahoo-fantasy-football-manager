@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchUserTeams, fetchTeamRosterWithPoints } from '../utils/yahooApi';
+import { fetchUserTeams, fetchTeamRosterWithPoints } from '../utils/yahooApi.js';
 
 const RosterDisplay = ({ teamKey }) => {
   const [roster, setRoster] = useState([]);

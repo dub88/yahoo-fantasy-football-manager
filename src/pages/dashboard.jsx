@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAuthenticated, logout } from '../utils/auth';
-import { fetchUserTeams, fetchLeagueStandings } from '../utils/yahooApi';
+import { fetchUserTeams, fetchLeagueStandings } from '../utils/yahooApi.js';
 import AuthButton from '../components/AuthButton';
 import RosterDisplay from '../components/RosterDisplay';
 import LineupOptimizer from '../components/LineupOptimizer';
@@ -12,7 +12,7 @@ import PlayerRankings from '../components/PlayerRankings';
 import MatchupAnalysis from '../components/MatchupAnalysis';
 import LeagueStandings from '../components/LeagueStandings';
 import PlayerNews from '../components/PlayerNews';
-import { fetchTeamRoster } from '../utils/yahooApi';
+import { fetchTeamRoster } from '../utils/yahooApi.js';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('roster');

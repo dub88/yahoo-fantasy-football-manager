@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchPlayerNews as fetchYahooPlayerNews } from '../utils/yahooApi';
+import { fetchPlayerNews as fetchYahooPlayerNews } from '../utils/yahooApi.js';
 
 const PlayerNews = ({ teamKey }) => {
   const [news, setNews] = useState([]);
