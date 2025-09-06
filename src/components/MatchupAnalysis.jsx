@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchTeamRosterWeekly, fetchPlayersWeeklyStats, fetchCurrentMatchup, fetchLeagueSettings } from '../utils/yahooApi';
+import { fetchTeamRosterWeekly, fetchPlayersWeeklyStats, fetchCurrentMatchup, fetchLeagueSettings } from '../utils/yahooApi.js';
 
 const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
   const [teamData, setTeamData] = useState(null);
