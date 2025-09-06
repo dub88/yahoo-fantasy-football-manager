@@ -25,27 +25,38 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
     try {
       // Get the current matchup for the team
       const matchupData = await fetchCurrentMatchup(teamKey);
+      console.log('Matchup Data:', matchupData); // Debug log
       
       // Parse the XML response to extract matchup information
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(matchupData, 'text/xml');
+      
+      // Check for XML parsing errors
+      const parserError = xmlDoc.getElementsByTagName('parsererror');
+      if (parserError.length > 0) {
+        throw new Error('Failed to parse matchup data');
+      }
       
       // Extract the current week
       const weekEl = xmlDoc.getElementsByTagName('week')[0];
       const week = weekEl ? weekEl.textContent : '1';
       setCurrentWeek(week);
       
-      // Extract the opponent's team key
-      const teamNodes = xmlDoc.getElementsByTagName('team');
+      // Extract team matchups
+      const matchupNodes = xmlDoc.getElementsByTagName('matchup');
       let opponentTeamKey = null;
       
-      for (let i = 0; i < teamNodes.length; i++) {
-        const teamNode = teamNodes[i];
-        const teamKeyEl = teamNode.getElementsByTagName('team_key')[0];
-        if (teamKeyEl && teamKeyEl.textContent !== teamKey) {
-          opponentTeamKey = teamKeyEl.textContent;
-          break;
+      // Find the team that isn't the current team
+      for (let i = 0; i < matchupNodes.length; i++) {
+        const teams = matchupNodes[i].getElementsByTagName('team');
+        for (let j = 0; j < teams.length; j++) {
+          const teamKeyEl = teams[j].getElementsByTagName('team_key')[0];
+          if (teamKeyEl && teamKeyEl.textContent !== teamKey) {
+            opponentTeamKey = teamKeyEl.textContent;
+            break;
+          }
         }
+        if (opponentTeamKey) break;
       }
       
       // If we found an opponent, fetch both team details
@@ -87,11 +98,24 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
     if (!rosterData) return null;
     
     try {
+      console.log('Processing roster data for:', teamName); // Debug log
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(rosterData, 'text/xml');
       
+      // Check for XML parsing errors
+      const parserError = xmlDoc.getElementsByTagName('parsererror');
+      if (parserError.length > 0) {
+        console.error('XML Parse Error:', parserError[0].textContent);
+        return null;
+      }
+      
       // Extract team name
       const teamNode = xmlDoc.getElementsByTagName('team')[0];
+      if (!teamNode) {
+        console.error('No team node found in roster data');
+        return null;
+      }
+      
       const nameNode = teamNode.getElementsByTagName('name')[0];
       const teamName = nameNode ? nameNode.textContent : teamName;
       

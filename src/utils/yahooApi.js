@@ -275,23 +275,62 @@ export const fetchCurrentMatchup = async (teamKey) => {
       throw new Error('No access token available');
     }
     
-    // Get the current week's matchup
-    const response = await fetch(`/api/yahoo?endpoint=team/${teamKey}/matchups;weeks=current`, {
+    console.log(`Fetching current matchup for team: ${teamKey}`);
+    
+    // First, get the league key from the team key
+    const leagueKey = teamKey.substring(0, teamKey.lastIndexOf('.'));
+    
+    // Get the current week for the league
+    const weekResponse = await fetch(`/api/yahoo?endpoint=league/${leagueKey}/settings`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
+    if (!weekResponse.ok) {
+      const errorData = await weekResponse.json().catch(() => ({}));
+      console.error('Error fetching league settings:', errorData);
+      throw new Error(`Failed to get league settings: ${weekResponse.status}`);
     }
     
-    const result = await response.json();
-    return result.data;
+    const weekData = await weekResponse.json();
+    const weekDoc = new DOMParser().parseFromString(weekData.data, 'text/xml');
+    const currentWeekNode = weekDoc.getElementsByTagName('current_week')[0];
+    const currentWeek = currentWeekNode ? currentWeekNode.textContent : '1';
+    
+    console.log(`Current week: ${currentWeek}`);
+    
+    // Get the matchup for the current week
+    const response = await fetch(`/api/yahoo?endpoint=team/${teamKey}/matchups;weeks=${currentWeek}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/xml'  // Request XML response
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    // Get the response as text to handle both JSON and XML
+    const responseText = await response.text();
+    
+    // Try to parse as JSON first
+    try {
+      const result = JSON.parse(responseText);
+      console.log('Matchup data (JSON):', result);
+      return result.data || responseText; // Return data or raw response if no data property
+    } catch (e) {
+      // If not JSON, it's likely XML
+      console.log('Matchup data (XML):', responseText);
+      return responseText;
+    }
   } catch (error) {
-    console.error('Error fetching current matchup:', error);
+    console.error('Error in fetchCurrentMatchup:', error);
     throw error;
   }
 };
