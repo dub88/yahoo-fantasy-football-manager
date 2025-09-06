@@ -94,11 +94,11 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
   };
   
   // Process team roster data into a format we can use
-  const processTeamRoster = (rosterData, teamName) => {
+  const processTeamRoster = (rosterData, defaultTeamName) => {
     if (!rosterData) return null;
     
     try {
-      console.log('Processing roster data for:', teamName); // Debug log
+      console.log('Processing roster data for:', defaultTeamName); // Debug log
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(rosterData, 'text/xml');
       
@@ -117,7 +117,7 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
       }
       
       const nameNode = teamNode.getElementsByTagName('name')[0];
-      const teamName = nameNode ? nameNode.textContent : teamName;
+      const teamName = nameNode ? nameNode.textContent : defaultTeamName;
       
       // Extract players
       const playerNodes = xmlDoc.getElementsByTagName('player');
