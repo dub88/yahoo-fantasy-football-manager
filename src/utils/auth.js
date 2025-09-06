@@ -12,13 +12,16 @@ export const initiateOAuth = () => {
   }
   
   // Include required scopes for Yahoo Fantasy Sports API access
-  // See: https://developer.yahoo.com/oauth2/guide/yahoo_scopes/
   const scopes = [
-    'fspt_w',  // Read/write access to private user data (rosters, teams, etc.)
-    'profile'   // Basic profile information
+    'fspt-r',  // Read access to fantasy sports data
+    'fspt-w',  // Write access to fantasy sports data
+    'openid',  // Required for OAuth 2.0
+    'profile'  // Basic profile information
   ].join(' ');
   
   const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&language=en-us&scope=${encodeURIComponent(scopes)}`;
+  
+  console.log('Initiating OAuth with URL:', authUrl);
   
   // Redirect to Yahoo's OAuth page
   window.location.href = authUrl;

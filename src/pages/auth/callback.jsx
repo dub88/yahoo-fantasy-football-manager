@@ -9,25 +9,31 @@ const Callback = () => {
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
-      // Get the authorization code from the URL query parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-
+      console.log('Current URL:', window.location.href);
+      
+      // Check both query params and hash fragments for the code
+      const queryParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      
+      console.log('Query Params:', Object.fromEntries(queryParams.entries()));
+      console.log('Hash Params:', Object.fromEntries(hashParams.entries()));
+      
+      // Try to get code from either location
+      const code = queryParams.get('code') || hashParams.get('code');
+      
       if (!code) {
+        console.error('No code parameter found in URL or hash');
         setError('No authorization code found in the callback URL.');
         setLoading(false);
         return;
       }
 
       try {
-        // Exchange the authorization code for an access token
+        console.log('Authorization code found, exchanging for token');
         await exchangeCodeForToken(code);
-        
-        // Redirect to the dashboard
         navigate('/dashboard');
       } catch (err) {
         console.error('Error during OAuth callback:', err);
-        // Check if this is an expired code error
         if (err.message.includes('expired')) {
           setError('The authorization code has expired. Please try logging in again.');
         } else {
