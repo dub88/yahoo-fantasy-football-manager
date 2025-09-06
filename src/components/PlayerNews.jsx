@@ -1,66 +1,151 @@
 import React, { useState, useEffect } from 'react';
+import { fetchPlayerNews as fetchYahooPlayerNews } from '../utils/yahooApi';
 
-const PlayerNews = () => {
+const PlayerNews = ({ teamKey }) => {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [playerKeys, setPlayerKeys] = useState([]);
 
+  // Fetch player keys when teamKey changes
   useEffect(() => {
-    fetchPlayerNews();
-  }, []);
+    if (teamKey) {
+      fetchTeamPlayerKeys(teamKey);
+    }
+  }, [teamKey]);
 
+  // Fetch news when playerKeys changes
+  useEffect(() => {
+    if (playerKeys.length > 0) {
+      fetchPlayerNews();
+    }
+  }, [playerKeys]);
+
+  // Fetch player keys for the team
+  const fetchTeamPlayerKeys = async (teamKey) => {
+    try {
+      // In a real implementation, we would fetch the team roster to get player keys
+      // For now, we'll use a placeholder or you can implement the actual fetch
+      // This is a simplified version - you'll need to implement fetchTeamRoster
+      const roster = await fetchTeamRoster(teamKey);
+      if (roster && roster.players) {
+        setPlayerKeys(roster.players.map(p => p.player_key));
+      }
+    } catch (err) {
+      console.error('Error fetching team roster:', err);
+      setError('Failed to load team roster. Some news may be missing.');
+    }
+  };
+
+  // Fetch news for the team's players
   const fetchPlayerNews = async () => {
+    if (playerKeys.length === 0) return;
+    
     setLoading(true);
     setError(null);
+    
     try {
-      // In a real implementation, we would fetch actual news from an API
-      // For now, we'll simulate the data
-      const mockNews = [
-        {
-          id: 1,
-          player: 'Patrick Mahomes',
-          team: 'KC',
-          position: 'QB',
-          news: 'Limited in practice with knee injury, expected to play Sunday',
-          date: '2025-09-05',
-          status: 'Questionable'
-        },
-        {
-          id: 2,
-          player: 'Christian McCaffrey',
-          team: 'SF',
-          position: 'RB',
-          news: 'Full participation in practice, no injury concerns',
-          date: '2025-09-04',
-          status: 'Healthy'
-        },
-        {
-          id: 3,
-          player: 'Tyreek Hill',
-          team: 'MIA',
-          position: 'WR',
-          news: 'DNQ for practice with hamstring injury, status uncertain',
-          date: '2025-09-05',
-          status: 'Out'
-        },
-        {
-          id: 4,
-          player: 'Travis Kelce',
-          team: 'KC',
-          position: 'TE',
-          news: 'Rest day for veteran player, expected to play Sunday',
-          date: '2025-09-04',
-          status: 'Healthy'
-        }
-      ];
+      // Fetch news in batches to avoid hitting API limits
+      const batchSize = 10;
+      let allNews = [];
       
-      setNews(mockNews);
+      for (let i = 0; i < playerKeys.length; i += batchSize) {
+        const batch = playerKeys.slice(i, i + batchSize);
+        const newsData = await fetchYahooPlayerNews(batch);
+        
+        if (newsData) {
+          const parsedNews = parseNewsData(newsData);
+          allNews = [...allNews, ...parsedNews];
+        }
+        
+        // Add a small delay between batches to avoid rate limiting
+        if (i + batchSize < playerKeys.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      // Sort news by date (newest first)
+      allNews.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      setNews(allNews);
     } catch (err) {
       setError('Failed to fetch player news. Please try again.');
       console.error('Error fetching player news:', err);
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Parse the XML response from Yahoo API into a more usable format
+  const parseNewsData = (xmlData) => {
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+      const newsItems = [];
+      
+      // Get all player nodes
+      const playerNodes = xmlDoc.getElementsByTagName('player');
+      
+      for (let i = 0; i < playerNodes.length; i++) {
+        const playerNode = playerNodes[i];
+        
+        // Get player info
+        const nameNode = playerNode.getElementsByTagName('name')[0];
+        const playerName = nameNode ? nameNode.getElementsByTagName('full')[0]?.textContent : 'Unknown Player';
+        const teamNode = playerNode.getElementsByTagName('editorial_team_abbr')[0];
+        const team = teamNode ? teamNode.textContent : 'NFL';
+        const positionNode = playerNode.getElementsByTagName('display_position')[0] || 
+                           playerNode.getElementsByTagName('position')[0];
+        const position = positionNode ? positionNode.textContent : 'N/A';
+        
+        // Get injury status if available
+        const injuryNode = playerNode.getElementsByTagName('injury_note')[0];
+        let status = 'Healthy';
+        
+        if (injuryNode) {
+          const injuryStatus = playerNode.getElementsByTagName('status')[0]?.textContent;
+          if (injuryStatus === 'O') status = 'Out';
+          else if (injuryStatus === 'D' || injuryStatus === 'IR') status = 'Doubtful';
+          else if (injuryStatus === 'Q') status = 'Questionable';
+          else status = 'Injured';
+        }
+        
+        // Get news items for this player
+        const newsNodes = playerNode.getElementsByTagName('news');
+        
+        for (let j = 0; j < newsNodes.length; j++) {
+          const newsNode = newsNodes[j];
+          const titleNode = newsNode.getElementsByTagName('title')[0];
+          const contentNode = newsNode.getElementsByTagName('story')[0];
+          const dateNode = newsNode.getElementsByTagName('date')[0];
+          
+          if (titleNode && contentNode) {
+            newsItems.push({
+              id: `${i}-${j}`,
+              player: playerName,
+              team,
+              position,
+              title: titleNode.textContent,
+              news: contentNode.textContent,
+              date: dateNode ? new Date(dateNode.textContent).toLocaleDateString() : 'N/A',
+              status
+            });
+          }
+        }
+      }
+      
+      return newsItems;
+    } catch (err) {
+      console.error('Error parsing news data:', err);
+      return [];
+    }
+  };
+  
+  // Mock function - replace with actual implementation to fetch team roster
+  const fetchTeamRoster = async (teamKey) => {
+    // In a real implementation, fetch the team roster from your API
+    // This is a placeholder that returns an empty array
+    return { players: [] };
   };
 
   const getStatusColor = (status) => {

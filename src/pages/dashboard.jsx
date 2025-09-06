@@ -12,6 +12,7 @@ import PlayerRankings from '../components/PlayerRankings';
 import MatchupAnalysis from '../components/MatchupAnalysis';
 import LeagueStandings from '../components/LeagueStandings';
 import PlayerNews from '../components/PlayerNews';
+import { fetchTeamRoster } from '../utils/yahooApi';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('roster');
@@ -260,6 +261,11 @@ const Dashboard = () => {
     navigate('/');
   };
 
+  // Handle opponent selection from MatchupAnalysis component
+  const handleOpponentSelect = (opponentKey) => {
+    setOpponentKey(opponentKey);
+  };
+
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'roster':
@@ -267,19 +273,25 @@ const Dashboard = () => {
       case 'rankings':
         return <PlayerRankings leagueKey={leagueKey} />;
       case 'matchup':
-        return <MatchupAnalysis teamKey={teamKey} opponentKey={opponentKey} />;
+        return (
+          <MatchupAnalysis 
+            teamKey={teamKey} 
+            opponentKey={opponentKey} 
+            onOpponentChange={handleOpponentSelect}
+          />
+        );
       case 'standings':
         return <LeagueStandings leagueKey={leagueKey} />;
       case 'news':
-        return <PlayerNews />;
+        return <PlayerNews teamKey={teamKey} />;
       case 'lineup':
-        return <LineupOptimizer />;
+        return <LineupOptimizer teamKey={teamKey} />;
       case 'trades':
-        return <TradeAnalyzer />;
+        return <TradeAnalyzer teamKey={teamKey} leagueKey={leagueKey} />;
       case 'waivers':
-        return <WaiverAssistant />;
+        return <WaiverAssistant leagueKey={leagueKey} />;
       case 'performance':
-        return <PerformanceChart />;
+        return <PerformanceChart teamKey={teamKey} />;
       default:
         return <RosterDisplay teamKey={teamKey} />;
     }

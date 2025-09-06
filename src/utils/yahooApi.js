@@ -237,3 +237,122 @@ export const fetchPlayerOwnership = async (leagueKey) => {
     throw error;
   }
 };
+
+// Fetch team matchup data for the current week
+export const fetchTeamMatchup = async (teamKey) => {
+  try {
+    const token = await getAccessToken();
+    if (!token) {
+      throw new Error('No access token available');
+    }
+    
+    // Get the current team's matchup data
+    const response = await fetch(`/api/yahoo?endpoint=team/${teamKey}/matchups`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
+    }
+    
+    const result = await response.json();
+    return result.data;
+  } catch (error) {
+    console.error('Error fetching team matchup:', error);
+    throw error;
+  }
+};
+
+// Fetch current week's matchup for a team
+export const fetchCurrentMatchup = async (teamKey) => {
+  try {
+    const token = await getAccessToken();
+    if (!token) {
+      throw new Error('No access token available');
+    }
+    
+    // Get the current week's matchup
+    const response = await fetch(`/api/yahoo?endpoint=team/${teamKey}/matchups;weeks=current`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
+    }
+    
+    const result = await response.json();
+    return result.data;
+  } catch (error) {
+    console.error('Error fetching current matchup:', error);
+    throw error;
+  }
+};
+
+// Fetch player news
+export const fetchPlayerNews = async (playerKeys) => {
+  try {
+    const token = await getAccessToken();
+    if (!token) {
+      throw new Error('No access token available');
+    }
+    
+    // Convert array of player keys to a comma-separated string
+    const playerKeysStr = Array.isArray(playerKeys) ? playerKeys.join(',') : playerKeys;
+    
+    // Fetch news for the specified players
+    const response = await fetch(`/api/yahoo?endpoint=players;player_keys=${playerKeysStr}/news`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
+    }
+    
+    const result = await response.json();
+    return result.data;
+  } catch (error) {
+    console.error('Error fetching player news:', error);
+    throw error;
+  }
+};
+
+// Fetch team roster with player details
+export const fetchTeamRosterWithDetails = async (teamKey) => {
+  try {
+    const token = await getAccessToken();
+    if (!token) {
+      throw new Error('No access token available');
+    }
+    
+    // Fetch roster with player details including stats
+    const response = await fetch(`/api/yahoo?endpoint=team/${teamKey}/roster/players/stats`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
+    }
+    
+    const result = await response.json();
+    return result.data;
+  } catch (error) {
+    console.error('Error fetching team roster with details:', error);
+    throw error;
+  }
+};

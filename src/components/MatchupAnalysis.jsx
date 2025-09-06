@@ -1,54 +1,165 @@
 import React, { useState, useEffect } from 'react';
+import { fetchTeamRosterWithDetails, fetchCurrentMatchup } from '../utils/yahooApi';
 
-const MatchupAnalysis = ({ teamKey, opponentKey }) => {
+const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
   const [teamData, setTeamData] = useState(null);
   const [opponentData, setOpponentData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [currentWeek, setCurrentWeek] = useState('1');
 
   useEffect(() => {
-    if (teamKey && opponentKey) {
-      analyzeMatchup();
+    // When the component mounts or teamKey changes, fetch the current matchup
+    if (teamKey) {
+      fetchCurrentMatchupData();
     }
-  }, [teamKey, opponentKey]);
+  }, [teamKey]);
 
-  const analyzeMatchup = async () => {
+  // Fetch the current week's matchup for the selected team
+  const fetchCurrentMatchupData = async () => {
+    if (!teamKey) return;
+    
     setLoading(true);
     setError(null);
+    
     try {
-      // In a real implementation, we would fetch actual team data from the Yahoo API
-      // For now, we'll simulate the data
-      const mockTeamData = {
-        name: 'Your Team',
-        projectedPoints: 125.5,
-        roster: [
-          { name: 'Player 1', position: 'QB', projectedPoints: 18.2 },
-          { name: 'Player 2', position: 'RB', projectedPoints: 12.7 },
-          { name: 'Player 3', position: 'WR', projectedPoints: 10.5 },
-        ],
-        strengths: ['Running Backs', 'Tight Ends'],
-        weaknesses: ['Quarterback', 'Defense']
-      };
+      // Get the current matchup for the team
+      const matchupData = await fetchCurrentMatchup(teamKey);
       
-      const mockOpponentData = {
-        name: 'Opponent Team',
-        projectedPoints: 118.3,
-        roster: [
-          { name: 'Player A', position: 'QB', projectedPoints: 16.8 },
-          { name: 'Player B', position: 'RB', projectedPoints: 14.2 },
-          { name: 'Player C', position: 'WR', projectedPoints: 9.8 },
-        ],
-        strengths: ['Wide Receivers', 'Kicker'],
-        weaknesses: ['Running Backs', 'Defense']
-      };
+      // Parse the XML response to extract matchup information
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(matchupData, 'text/xml');
       
-      setTeamData(mockTeamData);
-      setOpponentData(mockOpponentData);
+      // Extract the current week
+      const weekEl = xmlDoc.getElementsByTagName('week')[0];
+      const week = weekEl ? weekEl.textContent : '1';
+      setCurrentWeek(week);
+      
+      // Extract the opponent's team key
+      const teamNodes = xmlDoc.getElementsByTagName('team');
+      let opponentTeamKey = null;
+      
+      for (let i = 0; i < teamNodes.length; i++) {
+        const teamNode = teamNodes[i];
+        const teamKeyEl = teamNode.getElementsByTagName('team_key')[0];
+        if (teamKeyEl && teamKeyEl.textContent !== teamKey) {
+          opponentTeamKey = teamKeyEl.textContent;
+          break;
+        }
+      }
+      
+      // If we found an opponent, fetch both team details
+      if (opponentTeamKey) {
+        // Update the parent component with the opponent key
+        if (onOpponentChange) {
+          onOpponentChange(opponentTeamKey);
+        }
+        
+        // Fetch both team rosters in parallel
+        const [teamRoster, opponentRoster] = await Promise.all([
+          fetchTeamRosterWithDetails(teamKey),
+          fetchTeamRosterWithDetails(opponentTeamKey)
+        ]);
+        
+        // Process team rosters
+        const teamInfo = processTeamRoster(teamRoster, 'Your Team');
+        const opponentInfo = processTeamRoster(opponentRoster, 'Opponent');
+        
+        setTeamData(teamInfo);
+        setOpponentData(opponentInfo);
+      } else {
+        // No opponent found (bye week?)
+        const teamRoster = await fetchTeamRosterWithDetails(teamKey);
+        const teamInfo = processTeamRoster(teamRoster, 'Your Team');
+        setTeamData(teamInfo);
+        setOpponentData(null);
+      }
     } catch (err) {
-      setError('Failed to analyze matchup. Please try again.');
-      console.error('Error analyzing matchup:', err);
+      setError('Failed to load matchup data. Please try again.');
+      console.error('Error fetching matchup data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Process team roster data into a format we can use
+  const processTeamRoster = (rosterData, teamName) => {
+    if (!rosterData) return null;
+    
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(rosterData, 'text/xml');
+      
+      // Extract team name
+      const teamNode = xmlDoc.getElementsByTagName('team')[0];
+      const nameNode = teamNode.getElementsByTagName('name')[0];
+      const teamName = nameNode ? nameNode.textContent : teamName;
+      
+      // Extract players
+      const playerNodes = xmlDoc.getElementsByTagName('player');
+      const roster = [];
+      let totalProjectedPoints = 0;
+      
+      for (let i = 0; i < playerNodes.length; i++) {
+        const playerNode = playerNodes[i];
+        const nameNode = playerNode.getElementsByTagName('name')[0];
+        const positionNode = playerNode.getElementsByTagName('display_position')[0] || 
+                            playerNode.getElementsByTagName('position')[0];
+        const pointsNode = playerNode.getElementsByTagName('points')[0];
+        
+        if (nameNode && positionNode) {
+          const name = nameNode.getElementsByTagName('full')[0]?.textContent || 
+                      nameNode.textContent;
+          const position = positionNode.textContent;
+          const projectedPoints = pointsNode ? parseFloat(pointsNode.textContent) : 0;
+          
+          totalProjectedPoints += projectedPoints;
+          
+          roster.push({
+            name,
+            position,
+            projectedPoints: projectedPoints.toFixed(1)
+          });
+        }
+      }
+      
+      // Sort roster by position for better display
+      roster.sort((a, b) => a.position.localeCompare(b.position));
+      
+      // Simple analysis of strengths/weaknesses (this is a simplified version)
+      const positionGroups = {};
+      roster.forEach(player => {
+        positionGroups[player.position] = (positionGroups[player.position] || 0) + 1;
+      });
+      
+      const strengths = [];
+      const weaknesses = [];
+      
+      // This is a simplified analysis - in a real app, you'd want more sophisticated logic
+      Object.entries(positionGroups).forEach(([pos, count]) => {
+        if (count >= 2) {
+          strengths.push(`${pos}s`);
+        }
+      });
+      
+      if (strengths.length === 0) {
+        strengths.push('Balanced roster');
+      }
+      
+      if (roster.length < 8) {
+        weaknesses.push('Short on depth');
+      }
+      
+      return {
+        name: teamName,
+        projectedPoints: totalProjectedPoints.toFixed(1),
+        roster,
+        strengths: strengths.length > 0 ? strengths : ['Balanced'],
+        weaknesses: weaknesses.length > 0 ? weaknesses : ['None identified']
+      };
+    } catch (err) {
+      console.error('Error processing roster data:', err);
+      return null;
     }
   };
 
