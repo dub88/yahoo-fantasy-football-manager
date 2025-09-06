@@ -57,7 +57,16 @@ const Dashboard = () => {
         const leaguesMap = new Map(); // Use Map to store leagues by season
         
         // Get current date for determining current season
-        const currentYear = new Date().getFullYear();
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
+        
+        // Determine current fantasy football season
+        // Fantasy football seasons typically run from August/September to January/February
+        // If it's before August, we're likely in the off-season of the previous year
+        const currentFantasySeason = currentMonth < 8 ? currentYear - 1 : currentYear;
+        
+        console.log('Current date:', { currentYear, currentMonth, currentFantasySeason });
         
         console.log('Found', teamsNodes.length, 'teams in XML');
         
@@ -80,14 +89,18 @@ const Dashboard = () => {
           // Get season info
           const season = leagueNode?.getElementsByTagName('season')[0]?.textContent || '';
           
-          console.log('Team data:', { teamKey, teamName, leagueKey, leagueName, season });
+          // Get additional info for better team selection
+          const isFinished = leagueNode?.getElementsByTagName('is_finished')[0]?.textContent === '1';
+          
+          console.log('Team data:', { teamKey, teamName, leagueKey, leagueName, season, isFinished });
           
           teamsArray.push({
             team_key: teamKey,
             name: teamName,
             league_key: leagueKey,
             league_name: leagueName,
-            season: season
+            season: season,
+            is_finished: isFinished
           });
           
           // Add to leagues map, organized by season
@@ -99,7 +112,12 @@ const Dashboard = () => {
             // Check if league already exists in this season
             const existingLeague = seasonLeagues.find(l => l.league_key === leagueKey);
             if (!existingLeague) {
-              seasonLeagues.push({ league_key: leagueKey, name: leagueName, season: season });
+              seasonLeagues.push({ 
+                league_key: leagueKey, 
+                name: leagueName, 
+                season: season,
+                is_finished: isFinished
+              });
             }
           }
         }
@@ -107,14 +125,21 @@ const Dashboard = () => {
         console.log('Processed teams array:', teamsArray);
         console.log('Processed leagues map:', leaguesMap);
         
-        // Filter teams to only show current season
+        // Filter teams to show current fantasy season
+        // Include teams from current fantasy season that are not finished
         const currentSeasonTeams = teamsArray.filter(team => 
-          team.season && parseInt(team.season) === currentYear
+          team.season && parseInt(team.season) === currentFantasySeason && team.is_finished !== '1'
         );
         
-        // If no teams from current season, show previous season
+        // If no active teams from current season, show all teams from current season
+        const currentSeasonAllTeams = teamsArray.filter(team => 
+          team.season && parseInt(team.season) === currentFantasySeason
+        );
+        
+        // If still no teams, show teams from previous season
         const teamsToShow = currentSeasonTeams.length > 0 ? currentSeasonTeams : 
-          teamsArray.filter(team => team.season && parseInt(team.season) === currentYear - 1);
+          (currentSeasonAllTeams.length > 0 ? currentSeasonAllTeams : 
+            teamsArray.filter(team => team.season && parseInt(team.season) === currentFantasySeason - 1));
         
         // Get leagues for the teams we're showing
         const leaguesToShow = [];
@@ -138,23 +163,33 @@ const Dashboard = () => {
         setTeams(teamsToShow);
         setLeagues(leaguesToShow);
         
-        // Auto-select current team (current season, or most recent if none from current)
+        // Auto-select current team (current season active team, or most recent if none from current)
         if (teamsToShow.length > 0) {
           let teamToSelect;
           
-          // Prefer team from current year
-          const currentYearTeams = teamsToShow.filter(team => 
-            parseInt(team.season) === currentYear
+          // Prefer active team from current fantasy season
+          const currentSeasonActiveTeams = teamsToShow.filter(team => 
+            parseInt(team.season) === currentFantasySeason && team.is_finished !== '1'
           );
           
-          if (currentYearTeams.length > 0) {
-            // If multiple teams from current year, select the first one
-            teamToSelect = currentYearTeams[0];
+          if (currentSeasonActiveTeams.length > 0) {
+            // If multiple active teams from current season, select the first one
+            teamToSelect = currentSeasonActiveTeams[0];
           } else {
-            // Select the team with the most recent season
-            teamToSelect = teamsToShow.reduce((latest, current) => 
-              parseInt(current.season) > parseInt(latest.season) ? current : latest
+            // Prefer any team from current fantasy season
+            const currentSeasonTeams = teamsToShow.filter(team => 
+              parseInt(team.season) === currentFantasySeason
             );
+            
+            if (currentSeasonTeams.length > 0) {
+              // Select the first team from current season
+              teamToSelect = currentSeasonTeams[0];
+            } else {
+              // Select the team with the most recent season
+              teamToSelect = teamsToShow.reduce((latest, current) => 
+                parseInt(current.season) > parseInt(latest.season) ? current : latest
+              );
+            }
           }
           
           console.log('Team to select:', teamToSelect);
@@ -164,6 +199,11 @@ const Dashboard = () => {
           
           // Fetch opponents for the selected league
           fetchOpponents(teamToSelect.league_key, teamToSelect.team_key);
+        } else {
+          // Clear selections if no teams found
+          setTeamKey('');
+          setLeagueKey('');
+          setOpponents([]);
         }
       }
     } catch (err) {
