@@ -1,65 +1,27 @@
 // Utility functions for Yahoo OAuth 2.0 authentication
 
-// Generate a random string for CSRF protection
-const generateRandomString = (length = 32) => {
-  const array = new Uint8Array(length);
-  window.crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-};
-
-// Store the state in session storage
-const setOAuthState = (state) => {
-  sessionStorage.setItem('yahoo_oauth_state', state);
-};
-
-// Get the stored state
-export const getOAuthState = () => {
-  const state = sessionStorage.getItem('yahoo_oauth_state');
-  sessionStorage.removeItem('yahoo_oauth_state');
-  return state;
-};
-
 // Initiate OAuth flow by redirecting to Yahoo's authorization URL
 export const initiateOAuth = () => {
   const clientId = import.meta.env.VITE_YAHOO_CLIENT_ID;
   const redirectUri = import.meta.env.VITE_YAHOO_REDIRECT_URI;
   const responseType = 'code';
   
-  console.log('OAuth configuration:');
-  console.log('Client ID exists:', !!clientId);
-  console.log('Redirect URI exists:', !!redirectUri);
-  console.log('Redirect URI:', redirectUri);
-  
   if (!clientId || !redirectUri) {
     console.error('Missing OAuth configuration. Please check your environment variables.');
     return;
   }
   
-  // Generate and store state for CSRF protection
-  const state = generateRandomString();
-  setOAuthState(state);
-  
   // Include required scopes for Yahoo Fantasy Sports API access
-  // Using the correct Fantasy Sports scopes
-  const scopes = 'yahoo-fantasy-sports';
+  // Using a simple, standard scope that should work
+  const scopes = 'fspt-r';
   
-  // Build the authorization URL with required parameters
-  const authUrl = new URL('https://api.login.yahoo.com/oauth2/request_auth');
-  authUrl.searchParams.append('client_id', clientId);
-  authUrl.searchParams.append('redirect_uri', redirectUri);
-  authUrl.searchParams.append('response_type', responseType);
-  authUrl.searchParams.append('language', 'en-us');
-  authUrl.searchParams.append('scope', scopes);
-  authUrl.searchParams.append('state', state);
+  // Build the authorization URL
+  const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&language=en-us&scope=${encodeURIComponent(scopes)}`;
   
-  console.log('Initiating OAuth with URL:', authUrl.toString());
+  console.log('Initiating OAuth with URL:', authUrl);
   
-  try {
-    // Redirect to Yahoo's OAuth page
-    window.location.href = authUrl.toString();
-  } catch (error) {
-    console.error('Error redirecting to Yahoo OAuth:', error);
-  }
+  // Redirect to Yahoo's OAuth page
+  window.location.href = authUrl;
 };
 
 // Exchange authorization code for access token using serverless function

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { exchangeCodeForToken, getOAuthState } from '../../utils/auth';
+import { exchangeCodeForToken } from '../../utils/auth';
 
 const Callback = () => {
   const [loading, setLoading] = useState(true);
@@ -21,20 +21,10 @@ const Callback = () => {
       // Check for error parameters
       const error = queryParams.get('error') || hashParams.get('error');
       const errorDescription = queryParams.get('error_description') || hashParams.get('error_description');
-      const state = queryParams.get('state') || hashParams.get('state');
       
       if (error) {
         console.error(`OAuth error: ${error} - ${errorDescription}`);
         setError(`Authentication error: ${errorDescription || error}. Please try again.`);
-        setLoading(false);
-        return;
-      }
-      
-      // Verify state parameter to prevent CSRF
-      const storedState = getOAuthState();
-      if (!storedState || storedState !== state) {
-        console.error('OAuth state mismatch');
-        setError('Invalid authentication state. Please try logging in again.');
         setLoading(false);
         return;
       }
