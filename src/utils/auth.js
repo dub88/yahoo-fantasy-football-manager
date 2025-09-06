@@ -12,8 +12,8 @@ export const initiateOAuth = () => {
   }
   
   // Include required scopes for Yahoo Fantasy Sports API access
-  // Using a simple, standard scope that should work
-  const scopes = 'fspt-r';
+  // Using the most basic scope that should work
+  const scopes = 'openid';
   
   // Build the authorization URL
   const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&language=en-us&scope=${encodeURIComponent(scopes)}`;
