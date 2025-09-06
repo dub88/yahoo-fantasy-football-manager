@@ -19,31 +19,56 @@ export const initiateOAuth = () => {
 
 // Exchange authorization code for access token using serverless function
 export const exchangeCodeForToken = async (code) => {
-  try {
-    const response = await fetch('/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ code })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+  // Try up to 2 times to exchange the code for a token
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      console.log(`Attempt ${attempt} to exchange authorization code for token`);
+      
+      const response = await fetch('/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        
+        // Handle specific error cases
+        if (errorData.code_expired) {
+          if (attempt < 2) {
+            // If this is the first attempt and the code expired, wait a bit and retry
+            console.log('Authorization code expired, waiting before retry...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          } else {
+            throw new Error('The authorization code has expired. Please try logging in again.');
+          }
+        }
+        
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Store access token and refresh token in localStorage
+      localStorage.setItem('yahoo_access_token', data.access_token);
+      localStorage.setItem('yahoo_refresh_token', data.refresh_token);
+      localStorage.setItem('yahoo_token_expires', Date.now() + (data.expires_in * 1000));
+      
+      return data;
+    } catch (error) {
+      console.error(`Error exchanging code for token (attempt ${attempt}):`, error);
+      
+      // If this is the last attempt, throw the error
+      if (attempt === 2) {
+        throw error;
+      }
+      
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
-    
-    const data = await response.json();
-    
-    // Store access token and refresh token in localStorage
-    localStorage.setItem('yahoo_access_token', data.access_token);
-    localStorage.setItem('yahoo_refresh_token', data.refresh_token);
-    localStorage.setItem('yahoo_token_expires', Date.now() + (data.expires_in * 1000));
-    
-    return data;
-  } catch (error) {
-    console.error('Error exchanging code for token:', error);
-    throw error;
   }
 };
 

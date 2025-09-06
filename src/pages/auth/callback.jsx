@@ -27,7 +27,12 @@ const Callback = () => {
         navigate('/dashboard');
       } catch (err) {
         console.error('Error during OAuth callback:', err);
-        setError('Failed to authenticate. Please try again.');
+        // Check if this is an expired code error
+        if (err.message.includes('expired')) {
+          setError('The authorization code has expired. Please try logging in again.');
+        } else {
+          setError('Failed to authenticate. Please try again.');
+        }
         setLoading(false);
       }
     };

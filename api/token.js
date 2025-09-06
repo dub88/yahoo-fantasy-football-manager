@@ -1,5 +1,15 @@
 // Vercel serverless function to handle Yahoo OAuth token exchange
 export default async function handler(request, response) {
+  // Add CORS headers for all requests
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return response.status(200).end();
+  }
+  
   // Only allow POST requests
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Method not allowed' });
@@ -38,6 +48,7 @@ export default async function handler(request, response) {
     console.log('Code length:', code?.length || 0);
     
     // Exchange authorization code for access token
+    const startTime = Date.now();
     const tokenResponse = await fetch('https://api.login.yahoo.com/oauth2/get_token', {
       method: 'POST',
       headers: {
@@ -51,12 +62,32 @@ export default async function handler(request, response) {
       })
     });
     
+    const endTime = Date.now();
+    console.log('Token exchange request took:', endTime - startTime, 'ms');
+    
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('Token exchange failed with status:', tokenResponse.status);
       console.error('Token exchange error response:', errorText);
       console.error('Expected redirect URI:', redirectUri);
-      return response.status(tokenResponse.status).json({ error: 'Failed to exchange token', details: errorText });
+      
+      // Handle specific error cases
+      if (tokenResponse.status === 400) {
+        // Check if this is an expired code error
+        if (errorText.includes('invalid_grant') && errorText.includes('expired')) {
+          return response.status(400).json({ 
+            error: 'Authorization code expired', 
+            details: 'The authorization code has expired. Please try logging in again.',
+            code_expired: true 
+          });
+        }
+      }
+      
+      return response.status(tokenResponse.status).json({ 
+        error: 'Failed to exchange token', 
+        details: errorText,
+        status: tokenResponse.status
+      });
     }
     
     const tokenData = await tokenResponse.json();
@@ -65,6 +96,6 @@ export default async function handler(request, response) {
     return response.status(200).json(tokenData);
   } catch (error) {
     console.error('Error in token exchange:', error);
-    return response.status(500).json({ error: 'Internal server error' });
+    return response.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }
