@@ -259,6 +259,10 @@ const Dashboard = () => {
     if (selectedTeam) {
       setLeagueKey(selectedTeam.league_key);
       fetchOpponents(selectedTeam.league_key, selectedTeamKey);
+    } else {
+      // Clear league and opponents if no team selected
+      setLeagueKey('');
+      setOpponents([]);
     }
   };
 
@@ -350,9 +354,16 @@ const Dashboard = () => {
                 <select
                   id="leagueSelect"
                   value={leagueKey}
-                  onChange={(e) => setLeagueKey(e.target.value)}
+                  onChange={(e) => {
+                    setLeagueKey(e.target.value);
+                    // Fetch opponents when league is manually changed
+                    if (teamKey) {
+                      fetchOpponents(e.target.value, teamKey);
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
+                  <option value="">Select a league</option>
                   {leagues.map((league) => (
                     <option key={league.league_key} value={league.league_key}>
                       {league.name}
