@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchTeamRosterWeekly, fetchPlayersWeeklyStats, fetchCurrentMatchup, fetchLeagueSettings } from '../utils/yahooApi.js';
+import * as yahooApi from '../utils/yahooApi.js';
 
 const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
   const [teamData, setTeamData] = useState(null);
@@ -28,12 +28,12 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
     
     try {
       // Get the current matchup for the team
-      const matchupData = await fetchCurrentMatchup(teamKey);
-      console.log('Matchup Data:', matchupData); // Debug log
+      const responseText = await yahooApi.fetchCurrentMatchup(teamKey);
+      console.log('Matchup Data:', responseText); // Debug log
       
       // Parse the XML response to extract matchup information
       const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(matchupData, 'text/xml');
+      const xmlDoc = parser.parseFromString(responseText, 'text/xml');
       
       // Check for XML parsing errors
       const parserError = xmlDoc.getElementsByTagName('parsererror');
@@ -73,8 +73,8 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
         
         // Fetch both team rosters in parallel for the current week (includes player_points)
         const [teamRoster, opponentRoster] = await Promise.all([
-          fetchTeamRosterWeekly(teamKey, week, isProjected),
-          fetchTeamRosterWeekly(opponentTeamKey, week, isProjected)
+          yahooApi.fetchTeamRosterWeekly(teamKey, week, isProjected),
+          yahooApi.fetchTeamRosterWeekly(opponentTeamKey, week, isProjected)
         ]);
         
         // Process team rosters
@@ -88,7 +88,7 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
         setOpponentData(opponentInfo);
       } else {
         // No opponent found (bye week?)
-        const teamRoster = await fetchTeamRosterWeekly(teamKey, week, isProjected);
+        const teamRoster = await yahooApi.fetchTeamRosterWeekly(teamKey, week, isProjected);
         let teamInfo = processTeamRoster(teamRoster, 'Your Team', includeBench);
         teamInfo = await enrichWithWeeklyStats(teamInfo, week);
         setTeamData(teamInfo);
@@ -111,7 +111,7 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
         .map(p => p.key);
       if (missingKeys.length === 0) return teamInfo;
 
-      const xml = await fetchPlayersWeeklyStats(missingKeys, week, isProjected);
+      const xml = await yahooApi.fetchPlayersWeeklyStats(missingKeys, week, isProjected);
       if (!xml) return teamInfo;
       const parser = new DOMParser();
       const doc = parser.parseFromString(xml, 'text/xml');
@@ -175,13 +175,13 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
       try {
         const leagueKey = deriveLeagueKeyFromTeamKey(teamKey);
         if (!leagueKey) return teamInfo;
-        const settingsXml = await fetchLeagueSettings(leagueKey);
+        const settingsXml = await yahooApi.fetchLeagueSettings(leagueKey);
         const scoringMap = buildScoringMap(settingsXml);
         if (!scoringMap || scoringMap.size === 0) return teamInfo;
 
         // Fetch all player stats for the team for this week regardless of missingKeys, to ensure we have data
         const allKeys = teamInfo.roster.map(p => p.key).filter(Boolean);
-        const statsXml = await fetchPlayersWeeklyStats(allKeys, week, isProjected);
+        const statsXml = await yahooApi.fetchPlayersWeeklyStats(allKeys, week, isProjected);
         const computed = computePointsFromStats(statsXml, scoringMap);
 
         let total = 0;
@@ -277,8 +277,8 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
     try {
       if (opponentKey) {
         const [teamRoster, opponentRoster] = await Promise.all([
-          fetchTeamRosterWeekly(teamKey, week, isProjected),
-          fetchTeamRosterWeekly(opponentKey, week, isProjected)
+          yahooApi.fetchTeamRosterWeekly(teamKey, week, isProjected),
+          yahooApi.fetchTeamRosterWeekly(opponentKey, week, isProjected)
         ]);
         let teamInfo = processTeamRoster(teamRoster, 'Your Team', includeBench);
         let opponentInfo = processTeamRoster(opponentRoster, 'Opponent', includeBench);
@@ -287,7 +287,7 @@ const MatchupAnalysis = ({ teamKey, opponentKey, onOpponentChange }) => {
         setTeamData(teamInfo);
         setOpponentData(opponentInfo);
       } else {
-        const teamRoster = await fetchTeamRosterWeekly(teamKey, week, isProjected);
+        const teamRoster = await yahooApi.fetchTeamRosterWeekly(teamKey, week, isProjected);
         let teamInfo = processTeamRoster(teamRoster, 'Your Team', includeBench);
         teamInfo = await enrichWithWeeklyStats(teamInfo, week);
         setTeamData(teamInfo);
