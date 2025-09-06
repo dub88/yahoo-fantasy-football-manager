@@ -40,12 +40,16 @@ const Dashboard = () => {
     setError(null);
     try {
       const data = await fetchUserTeams();
+      console.log('Raw user teams data:', data);
       
       // Handle XML response from Yahoo API
       if (typeof data === 'string' && data.includes('<?xml')) {
         // Parse XML response
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(data, 'text/xml');
+        
+        // Log the XML structure for debugging
+        console.log('XML Document:', xmlDoc);
         
         // Extract teams from XML
         const teamsNodes = xmlDoc.getElementsByTagName('team');
@@ -55,18 +59,28 @@ const Dashboard = () => {
         // Get current date for determining current season
         const currentYear = new Date().getFullYear();
         
+        console.log('Found', teamsNodes.length, 'teams in XML');
+        
         for (let i = 0; i < teamsNodes.length; i++) {
           const teamNode = teamsNodes[i];
+          
+          // Log the team node for debugging
+          console.log('Team node', i, ':', teamNode);
+          
           const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
           const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
           
           // Get league info
           const leagueNode = teamNode.getElementsByTagName('league')[0];
+          console.log('League node', i, ':', leagueNode);
+          
           const leagueKey = leagueNode?.getElementsByTagName('league_key')[0]?.textContent || '';
           const leagueName = leagueNode?.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
           
           // Get season info
           const season = leagueNode?.getElementsByTagName('season')[0]?.textContent || '';
+          
+          console.log('Team data:', { teamKey, teamName, leagueKey, leagueName, season });
           
           teamsArray.push({
             team_key: teamKey,
@@ -82,6 +96,9 @@ const Dashboard = () => {
           }
         }
         
+        console.log('Processed teams array:', teamsArray);
+        console.log('Processed leagues set:', Array.from(leaguesSet));
+        
         setTeams(teamsArray);
         setLeagues(Array.from(leaguesSet));
         
@@ -92,6 +109,8 @@ const Dashboard = () => {
             team.season && parseInt(team.season) >= currentYear - 1
           );
           
+          console.log('Current season teams:', currentSeasonTeams);
+          
           // If we have teams from current/recent season, select the most recent one
           // Otherwise, select the first team
           const teamToSelect = currentSeasonTeams.length > 0 
@@ -100,11 +119,13 @@ const Dashboard = () => {
               )
             : teamsArray[0];
           
+          console.log('Team to select:', teamToSelect);
+          
           setTeamKey(teamToSelect.team_key);
           setLeagueKey(teamToSelect.league_key);
           
           // Fetch opponents for the selected league
-          fetchOpponents(teamToSelect.league_key);
+          fetchOpponents(teamToSelect.league_key, teamToSelect.team_key);
         }
       }
     } catch (err) {
@@ -115,9 +136,10 @@ const Dashboard = () => {
     }
   };
 
-  const fetchOpponents = async (selectedLeagueKey) => {
+  const fetchOpponents = async (selectedLeagueKey, currentTeamKey) => {
     try {
       const data = await fetchLeagueStandings(selectedLeagueKey);
+      console.log('Raw league standings data:', data);
       
       // Handle XML response from Yahoo API
       if (typeof data === 'string' && data.includes('<?xml')) {
@@ -125,23 +147,36 @@ const Dashboard = () => {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(data, 'text/xml');
         
+        // Log the XML structure for debugging
+        console.log('League standings XML Document:', xmlDoc);
+        
         // Extract teams from XML
         const teamNodes = xmlDoc.getElementsByTagName('team');
         const opponentsArray = [];
         
+        console.log('Found', teamNodes.length, 'teams in league standings XML');
+        
         for (let i = 0; i < teamNodes.length; i++) {
           const teamNode = teamNodes[i];
+          
+          // Log the team node for debugging
+          console.log('League team node', i, ':', teamNode);
+          
           const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
           const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
           
+          console.log('League team data:', { teamKey, teamName });
+          
           // Don't include the user's own team
-          if (teamKey !== teamKey) {
+          if (teamKey !== currentTeamKey) {
             opponentsArray.push({
               team_key: teamKey,
               name: teamName
             });
           }
         }
+        
+        console.log('Processed opponents array:', opponentsArray);
         
         setOpponents(opponentsArray);
       }
@@ -158,7 +193,7 @@ const Dashboard = () => {
     const selectedTeam = teams.find(team => team.team_key === selectedTeamKey);
     if (selectedTeam) {
       setLeagueKey(selectedTeam.league_key);
-      fetchOpponents(selectedTeam.league_key);
+      fetchOpponents(selectedTeam.league_key, selectedTeamKey);
     }
   };
 
