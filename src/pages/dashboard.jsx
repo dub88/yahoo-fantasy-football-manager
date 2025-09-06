@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAuthenticated, logout } from '../utils/auth';
+import { fetchUserTeams, fetchLeagueStandings } from '../utils/yahooApi';
 import AuthButton from '../components/AuthButton';
 import RosterDisplay from '../components/RosterDisplay';
 import LineupOptimizer from '../components/LineupOptimizer';
@@ -17,14 +18,129 @@ const Dashboard = () => {
   const [teamKey, setTeamKey] = useState('');
   const [leagueKey, setLeagueKey] = useState('');
   const [opponentKey, setOpponentKey] = useState('');
+  const [teams, setTeams] = useState([]);
+  const [leagues, setLeagues] = useState([]);
+  const [opponents, setOpponents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
       navigate('/');
+    } else {
+      // Fetch user's teams automatically
+      fetchUserTeamsData();
     }
   }, [navigate]);
+
+  const fetchUserTeamsData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchUserTeams();
+      
+      // Handle XML response from Yahoo API
+      if (typeof data === 'string' && data.includes('<?xml')) {
+        // Parse XML response
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(data, 'text/xml');
+        
+        // Extract teams from XML
+        const teamsNodes = xmlDoc.getElementsByTagName('team');
+        const teamsArray = [];
+        const leaguesSet = new Set();
+        
+        for (let i = 0; i < teamsNodes.length; i++) {
+          const teamNode = teamsNodes[i];
+          const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
+          const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
+          
+          // Get league info
+          const leagueNode = teamNode.getElementsByTagName('league')[0];
+          const leagueKey = leagueNode?.getElementsByTagName('league_key')[0]?.textContent || '';
+          const leagueName = leagueNode?.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
+          
+          teamsArray.push({
+            team_key: teamKey,
+            name: teamName,
+            league_key: leagueKey,
+            league_name: leagueName
+          });
+          
+          // Add to leagues set
+          if (leagueKey && leagueName) {
+            leaguesSet.add({ league_key: leagueKey, name: leagueName });
+          }
+        }
+        
+        setTeams(teamsArray);
+        setLeagues(Array.from(leaguesSet));
+        
+        // Auto-select first team and league if available
+        if (teamsArray.length > 0) {
+          setTeamKey(teamsArray[0].team_key);
+          setLeagueKey(teamsArray[0].league_key);
+          
+          // Fetch opponents for the selected league
+          fetchOpponents(teamsArray[0].league_key);
+        }
+      }
+    } catch (err) {
+      setError('Failed to fetch user teams. Please try again.');
+      console.error('Error fetching user teams:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchOpponents = async (selectedLeagueKey) => {
+    try {
+      const data = await fetchLeagueStandings(selectedLeagueKey);
+      
+      // Handle XML response from Yahoo API
+      if (typeof data === 'string' && data.includes('<?xml')) {
+        // Parse XML response
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(data, 'text/xml');
+        
+        // Extract teams from XML
+        const teamNodes = xmlDoc.getElementsByTagName('team');
+        const opponentsArray = [];
+        
+        for (let i = 0; i < teamNodes.length; i++) {
+          const teamNode = teamNodes[i];
+          const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
+          const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
+          
+          // Don't include the user's own team
+          if (teamKey !== teamKey) {
+            opponentsArray.push({
+              team_key: teamKey,
+              name: teamName
+            });
+          }
+        }
+        
+        setOpponents(opponentsArray);
+      }
+    } catch (err) {
+      console.error('Error fetching opponents:', err);
+    }
+  };
+
+  const handleTeamChange = (e) => {
+    const selectedTeamKey = e.target.value;
+    setTeamKey(selectedTeamKey);
+    
+    // Find the selected team and update league key
+    const selectedTeam = teams.find(team => team.team_key === selectedTeamKey);
+    if (selectedTeam) {
+      setLeagueKey(selectedTeam.league_key);
+      fetchOpponents(selectedTeam.league_key);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -79,53 +195,81 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        {/* Team/League Key Input */}
+        {/* Team/League Selection */}
         <div className="mb-8 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Enter Your Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="teamKey" className="block text-sm font-medium text-gray-700 mb-1">
-                Yahoo Team Key
-              </label>
-              <input
-                type="text"
-                id="teamKey"
-                value={teamKey}
-                onChange={(e) => setTeamKey(e.target.value)}
-                placeholder="e.g., 328.l.34567.t.8"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
+          <h2 className="text-xl font-semibold mb-4">Your Teams & Leagues</h2>
+          
+          {loading ? (
+            <div className="text-center py-4">Loading your teams...</div>
+          ) : error ? (
+            <div className="text-center py-4 text-red-500">{error}</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="teamSelect" className="block text-sm font-medium text-gray-700 mb-1">
+                  Select Your Team
+                </label>
+                <select
+                  id="teamSelect"
+                  value={teamKey}
+                  onChange={handleTeamChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {teams.map((team) => (
+                    <option key={team.team_key} value={team.team_key}>
+                      {team.name} ({team.league_name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="leagueSelect" className="block text-sm font-medium text-gray-700 mb-1">
+                  League
+                </label>
+                <select
+                  id="leagueSelect"
+                  value={leagueKey}
+                  onChange={(e) => setLeagueKey(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {leagues.map((league) => (
+                    <option key={league.league_key} value={league.league_key}>
+                      {league.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="opponentSelect" className="block text-sm font-medium text-gray-700 mb-1">
+                  Opponent (for matchup analysis)
+                </label>
+                <select
+                  id="opponentSelect"
+                  value={opponentKey}
+                  onChange={(e) => setOpponentKey(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select an opponent</option>
+                  {opponents.map((opponent) => (
+                    <option key={opponent.team_key} value={opponent.team_key}>
+                      {opponent.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label htmlFor="leagueKey" className="block text-sm font-medium text-gray-700 mb-1">
-                Yahoo League Key
-              </label>
-              <input
-                type="text"
-                id="leagueKey"
-                value={leagueKey}
-                onChange={(e) => setLeagueKey(e.target.value)}
-                placeholder="e.g., 328.l.34567"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label htmlFor="opponentKey" className="block text-sm font-medium text-gray-700 mb-1">
-                Opponent Team Key (for matchup analysis)
-              </label>
-              <input
-                type="text"
-                id="opponentKey"
-                value={opponentKey}
-                onChange={(e) => setOpponentKey(e.target.value)}
-                placeholder="e.g., 328.l.34567.t.9"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
+          )}
+          
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={fetchUserTeamsData}
+              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              Refresh Teams
+            </button>
           </div>
-          <p className="mt-2 text-sm text-gray-500">
-            You can find your team and league keys in the URL when viewing your team on Yahoo Fantasy Sports.
-          </p>
         </div>
 
         {/* Navigation Tabs */}
