@@ -51,8 +51,25 @@ const Dashboard = () => {
         // Log the XML structure for debugging
         console.log('XML Document:', xmlDoc);
         
-        // Extract teams from XML
-        const teamsNodes = xmlDoc.getElementsByTagName('team');
+        // Extract teams from XML - look for teams in different possible locations
+        let teamsNodes = xmlDoc.getElementsByTagName('team');
+        
+        // If we don't find teams directly, look in games/leagues
+        if (teamsNodes.length === 0) {
+          const gameNodes = xmlDoc.getElementsByTagName('game');
+          for (let i = 0; i < gameNodes.length; i++) {
+            const leagueNodes = gameNodes[i].getElementsByTagName('league');
+            for (let j = 0; j < leagueNodes.length; j++) {
+              const leagueTeams = leagueNodes[j].getElementsByTagName('team');
+              if (leagueTeams.length > 0) {
+                teamsNodes = leagueTeams;
+                break;
+              }
+            }
+            if (teamsNodes.length > 0) break;
+          }
+        }
+        
         const teamsArray = [];
         const leaguesMap = new Map(); // Use Map to store leagues by season
         
@@ -79,29 +96,46 @@ const Dashboard = () => {
           const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
           const teamName = teamNode.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
           
-          // Get league info
-          const leagueNode = teamNode.getElementsByTagName('league')[0];
+          // Get league info - try different possible locations
+          let leagueNode = teamNode.getElementsByTagName('league')[0];
+          
+          // If no league node directly in team, try to find it in parent
+          if (!leagueNode) {
+            // Look for league in the team's parent structure
+            let parent = teamNode.parentNode;
+            while (parent && parent.tagName !== 'league') {
+              parent = parent.parentNode;
+            }
+            leagueNode = parent;
+          }
+          
           console.log('League node', i, ':', leagueNode);
           
-          const leagueKey = leagueNode?.getElementsByTagName('league_key')[0]?.textContent || '';
-          const leagueName = leagueNode?.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
+          let leagueKey = '';
+          let leagueName = 'Unknown League';
+          let season = '';
+          let isFinished = false;
           
-          // Get season info
-          const season = leagueNode?.getElementsByTagName('season')[0]?.textContent || '';
-          
-          // Get additional info for better team selection
-          const isFinished = leagueNode?.getElementsByTagName('is_finished')[0]?.textContent === '1';
+          if (leagueNode) {
+            leagueKey = leagueNode.getElementsByTagName('league_key')[0]?.textContent || '';
+            leagueName = leagueNode.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
+            season = leagueNode.getElementsByTagName('season')[0]?.textContent || '';
+            isFinished = leagueNode.getElementsByTagName('is_finished')[0]?.textContent === '1';
+          }
           
           console.log('Team data:', { teamKey, teamName, leagueKey, leagueName, season, isFinished });
           
-          teamsArray.push({
-            team_key: teamKey,
-            name: teamName,
-            league_key: leagueKey,
-            league_name: leagueName,
-            season: season,
-            is_finished: isFinished
-          });
+          // Only add teams with valid keys
+          if (teamKey) {
+            teamsArray.push({
+              team_key: teamKey,
+              name: teamName,
+              league_key: leagueKey,
+              league_name: leagueName,
+              season: season,
+              is_finished: isFinished
+            });
+          }
           
           // Add to leagues map, organized by season
           if (leagueKey && leagueName) {
@@ -136,7 +170,7 @@ const Dashboard = () => {
           if (team.league_key && !leagueKeysAdded.has(team.league_key)) {
             const league = {
               league_key: team.league_key,
-              name: team.league_name,
+              name: team.league_name || 'Unknown League',
               season: team.season
             };
             leaguesToShow.push(league);
@@ -181,10 +215,12 @@ const Dashboard = () => {
           // Only set team key if we found a team to select
           if (teamToSelect) {
             setTeamKey(teamToSelect.team_key);
-            setLeagueKey(teamToSelect.league_key);
+            setLeagueKey(teamToSelect.league_key || '');
             
             // Fetch opponents for the selected league
-            fetchOpponents(teamToSelect.league_key, teamToSelect.team_key);
+            if (teamToSelect.league_key) {
+              fetchOpponents(teamToSelect.league_key, teamToSelect.team_key);
+            }
           }
         } else {
           // Clear selections if no teams found
@@ -339,9 +375,10 @@ const Dashboard = () => {
                   onChange={handleTeamChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
+                  <option value="">Select a team</option>
                   {teams.map((team) => (
                     <option key={team.team_key} value={team.team_key}>
-                      {team.name} ({team.league_name})
+                      {team.name} ({team.league_name || 'Unknown League'})
                     </option>
                   ))}
                 </select>
