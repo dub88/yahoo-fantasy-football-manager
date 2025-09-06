@@ -278,7 +278,13 @@ export const fetchCurrentMatchup = async (teamKey) => {
     console.log(`Fetching current matchup for team: ${teamKey}`);
     
     // First, get the league key from the team key
-    const leagueKey = teamKey.substring(0, teamKey.lastIndexOf('.'));
+    // Team key format: {game_key}.l.{league_id}.t.{team_id}
+    // League key format: {game_key}.l.{league_id}
+    const keyParts = teamKey.split('.');
+    if (keyParts.length < 4) {
+      throw new Error(`Invalid team key format: ${teamKey}. Expected format: {game_key}.l.{league_id}.t.{team_id}`);
+    }
+    const leagueKey = `${keyParts[0]}.${keyParts[1]}.${keyParts[2]}`;
     
     // Get the current week for the league
     const weekResponse = await fetch(`/api/yahoo?endpoint=league/${leagueKey}/settings`, {
