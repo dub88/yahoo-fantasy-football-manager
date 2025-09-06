@@ -6,6 +6,11 @@ export const initiateOAuth = () => {
   const redirectUri = import.meta.env.VITE_YAHOO_REDIRECT_URI;
   const responseType = 'code';
   
+  console.log('OAuth configuration:');
+  console.log('Client ID exists:', !!clientId);
+  console.log('Redirect URI exists:', !!redirectUri);
+  console.log('Redirect URI:', redirectUri);
+  
   if (!clientId || !redirectUri) {
     console.error('Missing OAuth configuration. Please check your environment variables.');
     return;
@@ -13,18 +18,21 @@ export const initiateOAuth = () => {
   
   // Include required scopes for Yahoo Fantasy Sports API access
   const scopes = [
-    'fspt-r',  // Read access to fantasy sports data
-    'fspt-w',  // Write access to fantasy sports data
-    'openid',  // Required for OAuth 2.0
-    'profile'  // Basic profile information
+    'fantasysports.r',  // Read access to fantasy sports data
+    'fantasysports.w'   // Write access to fantasy sports data
   ].join(' ');
   
+  // Build the authorization URL
   const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&language=en-us&scope=${encodeURIComponent(scopes)}`;
   
   console.log('Initiating OAuth with URL:', authUrl);
   
-  // Redirect to Yahoo's OAuth page
-  window.location.href = authUrl;
+  try {
+    // Redirect to Yahoo's OAuth page
+    window.location.href = authUrl;
+  } catch (error) {
+    console.error('Error redirecting to Yahoo OAuth:', error);
+  }
 };
 
 // Exchange authorization code for access token using serverless function

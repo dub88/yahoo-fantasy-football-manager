@@ -18,15 +18,28 @@ const Callback = () => {
       console.log('Query Params:', Object.fromEntries(queryParams.entries()));
       console.log('Hash Params:', Object.fromEntries(hashParams.entries()));
       
+      // Check for error parameters
+      const error = queryParams.get('error') || hashParams.get('error');
+      const errorDescription = queryParams.get('error_description') || hashParams.get('error_description');
+      
+      if (error) {
+        console.error(`OAuth error: ${error} - ${errorDescription}`);
+        setError(`Authentication error: ${errorDescription || error}. Please try again.`);
+        setLoading(false);
+        return;
+      }
+      
       // Try to get code from either location
       const code = queryParams.get('code') || hashParams.get('code');
       
       if (!code) {
         console.error('No code parameter found in URL or hash');
-        setError('No authorization code found in the callback URL.');
+        setError('No authorization code found in the callback URL. Please try logging in again.');
         setLoading(false);
         return;
       }
+      
+      console.log('Authorization code found:', code.substring(0, 5) + '...');
 
       try {
         console.log('Authorization code found, exchanging for token');

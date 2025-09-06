@@ -8,7 +8,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://api.login.yahoo.com; connect-src 'self' https://api.login.yahoo.com https://fantasysports.yahooapis.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-src https://api.login.yahoo.com"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://api.login.yahoo.com https://s.yimg.com https://s.yimg.jp https://*.yahooapis.com; connect-src 'self' https://api.login.yahoo.com https://fantasysports.yahooapis.com https://geo.yahoo.com https://udc.yahoo.com https://ups.analytics.yahoo.com https://server.comet.yahoo.com https://server-dev.comet.yahoo.com https://jsapi.login.yahoo.com https://www.yahoo.com https://3p-udc.yahoo.com https://3p-geo.yahoo.com https://www.google-analytics.com https://guce.yahoo.com/ https://api.taboola.com https://*.ipqualityscore.com https://*.ipqsnet.com https://*.clients.ipqs.com; img-src 'self' data: https://*.yimg.com; style-src 'self' 'unsafe-inline' https://*.yimg.com; font-src 'self' https://*.yimg.com; frame-src https://api.login.yahoo.com https://login.yahoo.com"
         }
       ]
     }
