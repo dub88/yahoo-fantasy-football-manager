@@ -44,7 +44,25 @@ export const fetchUserTeams = async () => {
     
     console.log('Fetching user teams with token');
     
-    const response = await fetch(`/api/yahoo?endpoint=users;use_login=1/games/teams`, {
+    // First get the games to find the current football game
+    const gamesResponse = await fetch(`/api/yahoo?endpoint=users;use_login=1/games`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!gamesResponse.ok) {
+      const errorData = await gamesResponse.json().catch(() => ({}));
+      console.error('Yahoo API proxy error for user games:', errorData);
+      throw new Error(`HTTP error! status: ${gamesResponse.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
+    }
+    
+    const gamesResult = await gamesResponse.json();
+    console.log('Yahoo API proxy success for user games, data:', gamesResult);
+    
+    // Now fetch teams with more specific endpoint that includes leagues
+    const response = await fetch(`/api/yahoo?endpoint=users;use_login=1/games/leagues/teams`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

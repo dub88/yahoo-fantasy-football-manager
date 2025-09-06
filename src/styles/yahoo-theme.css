@@ -1,0 +1,218 @@
+/* Yahoo Fantasy Football Theme */
+:root {
+  --yahoo-purple: #5d3f6a;
+  --yahoo-purple-dark: #4a2d57;
+  --yahoo-purple-light: #7a5a87;
+  --yahoo-gray: #f1f1f5;
+  --yahoo-gray-dark: #e1e1e5;
+  --yahoo-text: #333333;
+  --yahoo-text-light: #666666;
+  --yahoo-border: #d8d8d8;
+  --yahoo-link: #0063dc;
+  --yahoo-success: #008000;
+  --yahoo-warning: #ff7700;
+  --yahoo-error: #cc0000;
+}
+
+body {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  color: var(--yahoo-text);
+  background-color: var(--yahoo-gray);
+  margin: 0;
+  padding: 0;
+}
+
+/* Yahoo Header */
+.yahoo-header {
+  background-color: var(--yahoo-purple);
+  color: white;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.yahoo-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.yahoo-header .user-menu {
+  font-size: 0.875rem;
+}
+
+/* Yahoo Navigation */
+.yahoo-nav {
+  background-color: var(--yahoo-purple-dark);
+  padding: 0.25rem 1rem;
+}
+
+.yahoo-nav button {
+  color: white;
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.yahoo-nav button:hover {
+  background-color: var(--yahoo-purple-light);
+}
+
+.yahoo-nav button.active {
+  background-color: var(--yahoo-purple-light);
+}
+
+/* Yahoo Content */
+.yahoo-content {
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin: 1rem;
+  padding: 1.5rem;
+}
+
+.yahoo-content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--yahoo-purple);
+  margin-top: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--yahoo-border);
+}
+
+/* Yahoo Form Elements */
+.yahoo-select {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--yahoo-border);
+  border-radius: 4px;
+  background-color: white;
+  color: var(--yahoo-text);
+}
+
+.yahoo-select:focus {
+  outline: none;
+  border-color: var(--yahoo-purple);
+  box-shadow: 0 0 0 2px rgba(93, 63, 106, 0.2);
+}
+
+.yahoo-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: var(--yahoo-text);
+}
+
+.yahoo-button {
+  background-color: var(--yahoo-purple);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.yahoo-button:hover {
+  background-color: var(--yahoo-purple-dark);
+}
+
+.yahoo-button.secondary {
+  background-color: var(--yahoo-gray-dark);
+  color: var(--yahoo-text);
+}
+
+.yahoo-button.secondary:hover {
+  background-color: var(--yahoo-border);
+}
+
+/* Yahoo Table */
+.yahoo-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.yahoo-table th {
+  background-color: var(--yahoo-gray);
+  color: var(--yahoo-text);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem;
+  border-bottom: 2px solid var(--yahoo-border);
+}
+
+.yahoo-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--yahoo-border);
+}
+
+.yahoo-table tr:hover {
+  background-color: var(--yahoo-gray);
+}
+
+/* Yahoo Card */
+.yahoo-card {
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.yahoo-card-header {
+  background-color: var(--yahoo-purple);
+  color: white;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+}
+
+.yahoo-card-body {
+  padding: 1rem;
+}
+
+/* Yahoo Alert */
+.yahoo-alert {
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.yahoo-alert.error {
+  background-color: #ffebee;
+  color: var(--yahoo-error);
+  border: 1px solid #ffcdd2;
+}
+
+.yahoo-alert.success {
+  background-color: #e8f5e9;
+  color: var(--yahoo-success);
+  border: 1px solid #c8e6c9;
+}
+
+.yahoo-alert.warning {
+  background-color: #fff8e1;
+  color: var(--yahoo-warning);
+  border: 1px solid #ffecb3;
+}
+
+/* Yahoo Grid */
+.yahoo-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .yahoo-grid {
+    grid-template-columns: 1fr;
+  }
+}

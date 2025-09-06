@@ -56,144 +56,120 @@ const Dashboard = () => {
         // Log XML for debugging
         console.log('XML Document structure:', xmlDoc);
         
-        // Try different approaches to find teams in the XML
+        // Initialize arrays for teams and leagues
         let teamsArray = [];
         let leaguesArray = [];
         
-        // Approach 1: Look for teams directly
-        const directTeams = xmlDoc.getElementsByTagName('team');
-        console.log('Direct teams found:', directTeams.length);
-        
-        // Approach 2: Look for teams within fantasy_content > users > user > games > game > teams
+        // Get the fantasy_content root element
         const fantasyContent = xmlDoc.getElementsByTagName('fantasy_content')[0];
-        if (fantasyContent) {
-          // Try to find games
-          const games = fantasyContent.getElementsByTagName('game');
-          console.log('Games found:', games.length);
-          
-          for (let g = 0; g < games.length; g++) {
-            const game = games[g];
-            const gameKey = game.getElementsByTagName('game_key')[0]?.textContent;
-            const gameName = game.getElementsByTagName('name')[0]?.textContent;
-            console.log(`Game ${g}:`, { gameKey, gameName });
-            
-            // Look for teams within game
-            const teams = game.getElementsByTagName('team');
-            console.log(`Teams in game ${g}:`, teams.length);
-            
-            // Look for leagues within game
-            const leagues = game.getElementsByTagName('league');
-            console.log(`Leagues in game ${g}:`, leagues.length);
-            
-            // Process leagues and their teams
-            for (let l = 0; l < leagues.length; l++) {
-              const league = leagues[l];
-              const leagueKey = league.getElementsByTagName('league_key')[0]?.textContent || '';
-              const leagueName = league.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
-              const season = league.getElementsByTagName('season')[0]?.textContent || '';
-              const isFinished = league.getElementsByTagName('is_finished')[0]?.textContent === '1';
-              
-              console.log(`League ${l} in game ${g}:`, { leagueKey, leagueName, season });
-              
-              // Only process valid league keys
-              if (isValidLeagueKey(leagueKey)) {
-                leaguesArray.push({ 
-                  league_key: leagueKey, 
-                  name: leagueName, 
-                  season: season,
-                  is_finished: isFinished,
-                  game_key: gameKey
-                });
-                
-                // Find teams in this league
-                const leagueTeams = league.getElementsByTagName('team');
-                console.log(`Teams in league ${l}, game ${g}:`, leagueTeams.length);
-                
-                for (let t = 0; t < leagueTeams.length; t++) {
-                  const team = leagueTeams[t];
-                  const teamKey = team.getElementsByTagName('team_key')[0]?.textContent || '';
-                  const teamName = team.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
-                  
-                  if (teamKey) {
-                    teamsArray.push({
-                      team_key: teamKey,
-                      name: teamName,
-                      league_key: leagueKey,
-                      league_name: leagueName,
-                      season: season,
-                      is_finished: isFinished,
-                      game_key: gameKey
-                    });
-                    console.log(`Added team ${teamName} with league ${leagueName}`);
-                  }
-                }
-              } else {
-                console.log(`Skipping invalid league key: ${leagueKey}`);
-              }
-            }
-          }
+        if (!fantasyContent) {
+          throw new Error('Invalid XML structure: fantasy_content element not found');
         }
         
-        // If no teams found yet, try another approach
-        if (teamsArray.length === 0) {
-          // Try to find users and navigate through the structure
-          const users = xmlDoc.getElementsByTagName('user');
-          console.log('Users found:', users.length);
+        // Get the users element
+        const users = fantasyContent.getElementsByTagName('users')[0];
+        if (!users) {
+          throw new Error('Invalid XML structure: users element not found');
+        }
+        
+        // Get the user element
+        const user = users.getElementsByTagName('user')[0];
+        if (!user) {
+          throw new Error('Invalid XML structure: user element not found');
+        }
+        
+        // Get the games element
+        const games = user.getElementsByTagName('games')[0];
+        if (!games) {
+          throw new Error('Invalid XML structure: games element not found');
+        }
+        
+        // Process each game
+        const gameElements = games.getElementsByTagName('game');
+        console.log(`Found ${gameElements.length} games`);
+        
+        for (let g = 0; g < gameElements.length; g++) {
+          const game = gameElements[g];
+          const gameKey = game.getElementsByTagName('game_key')[0]?.textContent;
+          const gameName = game.getElementsByTagName('name')[0]?.textContent;
+          const gameCode = game.getElementsByTagName('code')[0]?.textContent;
+          const gameSeason = game.getElementsByTagName('season')[0]?.textContent;
           
-          for (let u = 0; u < users.length; u++) {
-            const user = users[u];
-            const userGames = user.getElementsByTagName('game');
+          console.log(`Game ${g}:`, { gameKey, gameName, gameCode, gameSeason });
+          
+          // Only process football games
+          if (gameCode === 'nfl') {
+            console.log(`Found NFL game: ${gameName} (${gameSeason})`);
             
-            for (let g = 0; g < userGames.length; g++) {
-              const game = userGames[g];
-              const gameKey = game.getElementsByTagName('game_key')[0]?.textContent;
+            // Get the leagues element
+            const leagues = game.getElementsByTagName('leagues')[0];
+            if (leagues) {
+              const leagueElements = leagues.getElementsByTagName('league');
+              console.log(`Found ${leagueElements.length} leagues in game ${gameKey}`);
               
-              // Look for teams in this game
-              const gameTeams = game.getElementsByTagName('team');
-              console.log(`Teams in user ${u}, game ${g}:`, gameTeams.length);
-              
-              for (let t = 0; t < gameTeams.length; t++) {
-                const team = gameTeams[t];
-                const teamKey = team.getElementsByTagName('team_key')[0]?.textContent || '';
-                const teamName = team.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
+              // Process each league
+              for (let l = 0; l < leagueElements.length; l++) {
+                const league = leagueElements[l];
+                const leagueKey = league.getElementsByTagName('league_key')[0]?.textContent || '';
+                const leagueName = league.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
+                const leagueSeason = league.getElementsByTagName('season')[0]?.textContent || '';
+                const isFinished = league.getElementsByTagName('is_finished')[0]?.textContent === '1';
                 
-                // Try to find league info for this team
-                const teamLeague = team.getElementsByTagName('league')[0];
-                let leagueKey = '';
-                let leagueName = 'Unknown League';
-                let season = '';
+                console.log(`League ${l}:`, { leagueKey, leagueName, leagueSeason, isFinished });
                 
-                if (teamLeague) {
-                  leagueKey = teamLeague.getElementsByTagName('league_key')[0]?.textContent || '';
-                  leagueName = teamLeague.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
-                  season = teamLeague.getElementsByTagName('season')[0]?.textContent || '';
-                }
-                
-                // Only add team if it has a valid league key
-                if (teamKey && isValidLeagueKey(leagueKey)) {
-                  teamsArray.push({
-                    team_key: teamKey,
-                    name: teamName,
+                // Only process leagues with valid keys
+                if (isValidLeagueKey(leagueKey)) {
+                  // Add league to leagues array
+                  leaguesArray.push({
                     league_key: leagueKey,
-                    league_name: leagueName,
-                    season: season,
+                    name: leagueName,
+                    season: leagueSeason,
+                    is_finished: isFinished,
                     game_key: gameKey
                   });
                   
-                  // Add league if not already added
-                  if (!leaguesArray.some(l => l.league_key === leagueKey)) {
-                    leaguesArray.push({
-                      league_key: leagueKey,
-                      name: leagueName,
-                      season: season,
-                      game_key: gameKey
-                    });
+                  // Get the teams element
+                  const teams = league.getElementsByTagName('teams')[0];
+                  if (teams) {
+                    const teamElements = teams.getElementsByTagName('team');
+                    console.log(`Found ${teamElements.length} teams in league ${leagueKey}`);
+                    
+                    // Process each team
+                    for (let t = 0; t < teamElements.length; t++) {
+                      const team = teamElements[t];
+                      const teamKey = team.getElementsByTagName('team_key')[0]?.textContent || '';
+                      const teamName = team.getElementsByTagName('name')[0]?.textContent || 'Unknown Team';
+                      const teamUrl = team.getElementsByTagName('url')[0]?.textContent || '';
+                      
+                      console.log(`Team ${t}:`, { teamKey, teamName, teamUrl });
+                      
+                      // Add team to teams array
+                      if (teamKey) {
+                        teamsArray.push({
+                          team_key: teamKey,
+                          name: teamName,
+                          url: teamUrl,
+                          league_key: leagueKey,
+                          league_name: leagueName,
+                          season: leagueSeason,
+                          is_finished: isFinished,
+                          game_key: gameKey
+                        });
+                        console.log(`Added team ${teamName} with league ${leagueName}`);
+                      }
+                    }
+                  } else {
+                    console.log(`No teams element found in league ${leagueKey}`);
                   }
-                  
-                  console.log(`Added team ${teamName} with league ${leagueName} from user approach`);
+                } else {
+                  console.log(`Skipping invalid league key: ${leagueKey}`);
                 }
               }
+            } else {
+              console.log(`No leagues element found in game ${gameKey}`);
             }
+          } else {
+            console.log(`Skipping non-NFL game: ${gameName} (${gameCode})`);
           }
         }
         
@@ -314,16 +290,16 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Fantasy Football Manager</h1>
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-gray-500">Welcome back!</div>
+    <div className="min-h-screen bg-yahoo-gray">
+      {/* Yahoo Header */}
+      <header className="yahoo-header">
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex justify-between items-center">
+          <h1>Yahoo Fantasy Football</h1>
+          <div className="flex items-center space-x-4 user-menu">
+            <div>Welcome back!</div>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+              className="text-white hover:text-gray-200"
             >
               Logout
             </button>
@@ -331,26 +307,51 @@ const Dashboard = () => {
         </div>
       </header>
 
+      {/* Yahoo Navigation */}
+      <div className="yahoo-nav">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto">
+          {[
+            { id: 'roster', name: 'Roster' },
+            { id: 'rankings', name: 'Players' },
+            { id: 'matchup', name: 'Matchup' },
+            { id: 'standings', name: 'Standings' },
+            { id: 'news', name: 'News' },
+            { id: 'lineup', name: 'Lineup' },
+            { id: 'trades', name: 'Trade' },
+            { id: 'waivers', name: 'Waiver' },
+            { id: 'performance', name: 'Stats' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={activeTab === tab.id ? 'active' : ''}
+            >
+              {tab.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {/* Team/League Selection */}
-        <div className="mb-8 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Your Teams & Leagues</h2>
+        <div className="yahoo-content mb-6">
+          <h2>Your Teams & Leagues</h2>
           
           {loading ? (
             <div className="text-center py-4">Loading your teams...</div>
           ) : error ? (
-            <div className="text-center py-4 text-red-500">{error}</div>
+            <div className="yahoo-alert error">{error}</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label htmlFor="teamSelect" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="yahoo-grid">
+              <div className="col-span-4">
+                <label htmlFor="teamSelect" className="yahoo-label">
                   Select Your Team
                 </label>
                 <select
                   id="teamSelect"
                   value={teamKey}
                   onChange={handleTeamChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="yahoo-select"
                 >
                   <option value="">Select a team</option>
                   {teams.map((team) => (
@@ -361,8 +362,8 @@ const Dashboard = () => {
                 </select>
               </div>
               
-              <div>
-                <label htmlFor="leagueSelect" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="col-span-4">
+                <label htmlFor="leagueSelect" className="yahoo-label">
                   League
                 </label>
                 <select
@@ -376,7 +377,7 @@ const Dashboard = () => {
                       fetchOpponents(newLeagueKey, teamKey);
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="yahoo-select"
                 >
                   <option value="">Select a league</option>
                   {leagues.map((league) => (
@@ -387,15 +388,15 @@ const Dashboard = () => {
                 </select>
               </div>
               
-              <div>
-                <label htmlFor="opponentSelect" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="col-span-4">
+                <label htmlFor="opponentSelect" className="yahoo-label">
                   Opponent (for matchup analysis)
                 </label>
                 <select
                   id="opponentSelect"
                   value={opponentKey}
                   onChange={(e) => setOpponentKey(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="yahoo-select"
                 >
                   <option value="">Select an opponent</option>
                   {opponents.map((opponent) => (
@@ -411,43 +412,15 @@ const Dashboard = () => {
           <div className="mt-4 flex justify-end">
             <button
               onClick={fetchUserTeamsData}
-              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              className="yahoo-button"
             >
               Refresh Teams
             </button>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 overflow-x-auto">
-            {[
-              { id: 'roster', name: 'Roster' },
-              { id: 'rankings', name: 'Player Rankings' },
-              { id: 'matchup', name: 'Matchup Analysis' },
-              { id: 'standings', name: 'League Standings' },
-              { id: 'news', name: 'Player News' },
-              { id: 'lineup', name: 'Lineup Optimizer' },
-              { id: 'trades', name: 'Trade Analyzer' },
-              { id: 'waivers', name: 'Waiver Assistant' },
-              { id: 'performance', name: 'Performance' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                {tab.name}
-              </button>
-            ))}
-          </nav>
-        </div>
-
         {/* Tab Content */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="yahoo-content">
           {renderActiveTab()}
         </div>
       </main>
