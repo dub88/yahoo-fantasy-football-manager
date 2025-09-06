@@ -52,6 +52,9 @@ const Dashboard = () => {
         const teamsArray = [];
         const leaguesSet = new Set();
         
+        // Get current date for determining current season
+        const currentYear = new Date().getFullYear();
+        
         for (let i = 0; i < teamsNodes.length; i++) {
           const teamNode = teamsNodes[i];
           const teamKey = teamNode.getElementsByTagName('team_key')[0]?.textContent || '';
@@ -62,29 +65,46 @@ const Dashboard = () => {
           const leagueKey = leagueNode?.getElementsByTagName('league_key')[0]?.textContent || '';
           const leagueName = leagueNode?.getElementsByTagName('name')[0]?.textContent || 'Unknown League';
           
+          // Get season info
+          const season = leagueNode?.getElementsByTagName('season')[0]?.textContent || '';
+          
           teamsArray.push({
             team_key: teamKey,
             name: teamName,
             league_key: leagueKey,
-            league_name: leagueName
+            league_name: leagueName,
+            season: season
           });
           
           // Add to leagues set
           if (leagueKey && leagueName) {
-            leaguesSet.add({ league_key: leagueKey, name: leagueName });
+            leaguesSet.add({ league_key: leagueKey, name: leagueName, season: season });
           }
         }
         
         setTeams(teamsArray);
         setLeagues(Array.from(leaguesSet));
         
-        // Auto-select first team and league if available
+        // Auto-select current team (most recent season)
         if (teamsArray.length > 0) {
-          setTeamKey(teamsArray[0].team_key);
-          setLeagueKey(teamsArray[0].league_key);
+          // Find teams from current or most recent season
+          const currentSeasonTeams = teamsArray.filter(team => 
+            team.season && parseInt(team.season) >= currentYear - 1
+          );
+          
+          // If we have teams from current/recent season, select the most recent one
+          // Otherwise, select the first team
+          const teamToSelect = currentSeasonTeams.length > 0 
+            ? currentSeasonTeams.reduce((latest, current) => 
+                parseInt(current.season) > parseInt(latest.season) ? current : latest
+              )
+            : teamsArray[0];
+          
+          setTeamKey(teamToSelect.team_key);
+          setLeagueKey(teamToSelect.league_key);
           
           // Fetch opponents for the selected league
-          fetchOpponents(teamsArray[0].league_key);
+          fetchOpponents(teamToSelect.league_key);
         }
       }
     } catch (err) {
