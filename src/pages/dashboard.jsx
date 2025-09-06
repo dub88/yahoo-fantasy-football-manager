@@ -354,11 +354,18 @@ const Dashboard = () => {
                   className="yahoo-select"
                 >
                   <option value="">Select a team</option>
-                  {teams.map((team) => (
-                    <option key={team.team_key} value={team.team_key}>
-                      {team.name} ({team.league_name || 'Unknown League'})
-                    </option>
-                  ))}
+                  {[...teams]
+                    .sort((a, b) => {
+                      // Sort by season (descending) so most recent teams appear first
+                      const seasonA = parseInt(a.season) || 0;
+                      const seasonB = parseInt(b.season) || 0;
+                      return seasonB - seasonA;
+                    })
+                    .map((team) => (
+                      <option key={team.team_key} value={team.team_key}>
+                        {team.name} - {team.season || 'Unknown Year'} ({team.league_name || 'Unknown League'})
+                      </option>
+                    ))}
                 </select>
               </div>
               
@@ -380,11 +387,18 @@ const Dashboard = () => {
                   className="yahoo-select"
                 >
                   <option value="">Select a league</option>
-                  {leagues.map((league) => (
-                    <option key={league.league_key} value={league.league_key}>
-                      {league.name}
-                    </option>
-                  ))}
+                  {[...leagues]
+                    .sort((a, b) => {
+                      // Sort by season (descending) so most recent leagues appear first
+                      const seasonA = parseInt(a.season) || 0;
+                      const seasonB = parseInt(b.season) || 0;
+                      return seasonB - seasonA;
+                    })
+                    .map((league) => (
+                      <option key={league.league_key} value={league.league_key}>
+                        {league.name} - {league.season || 'Unknown Year'}
+                      </option>
+                    ))}
                 </select>
               </div>
               
