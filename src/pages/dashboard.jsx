@@ -107,31 +107,55 @@ const Dashboard = () => {
         console.log('Processed teams array:', teamsArray);
         console.log('Processed leagues map:', leaguesMap);
         
-        // Filter teams to only show current/recent seasons (current year and previous year)
+        // Filter teams to only show current season
         const currentSeasonTeams = teamsArray.filter(team => 
-          team.season && parseInt(team.season) >= currentYear - 1
+          team.season && parseInt(team.season) === currentYear
         );
         
-        // Get leagues for current/recent seasons
-        const currentLeagues = [];
-        for (const [season, leagues] of leaguesMap) {
-          if (parseInt(season) >= currentYear - 1) {
-            currentLeagues.push(...leagues);
+        // If no teams from current season, show previous season
+        const teamsToShow = currentSeasonTeams.length > 0 ? currentSeasonTeams : 
+          teamsArray.filter(team => team.season && parseInt(team.season) === currentYear - 1);
+        
+        // Get leagues for the teams we're showing
+        const leaguesToShow = [];
+        const leagueKeysAdded = new Set();
+        
+        teamsToShow.forEach(team => {
+          if (team.league_key && !leagueKeysAdded.has(team.league_key)) {
+            const league = {
+              league_key: team.league_key,
+              name: team.league_name,
+              season: team.season
+            };
+            leaguesToShow.push(league);
+            leagueKeysAdded.add(team.league_key);
           }
-        }
+        });
         
-        console.log('Current season teams:', currentSeasonTeams);
-        console.log('Current leagues:', currentLeagues);
+        console.log('Teams to show:', teamsToShow);
+        console.log('Leagues to show:', leaguesToShow);
         
-        setTeams(currentSeasonTeams);
-        setLeagues(currentLeagues);
+        setTeams(teamsToShow);
+        setLeagues(leaguesToShow);
         
-        // Auto-select current team (most recent season)
-        if (currentSeasonTeams.length > 0) {
-          // Select the team with the most recent season
-          const teamToSelect = currentSeasonTeams.reduce((latest, current) => 
-            parseInt(current.season) > parseInt(latest.season) ? current : latest
+        // Auto-select current team (current season, or most recent if none from current)
+        if (teamsToShow.length > 0) {
+          let teamToSelect;
+          
+          // Prefer team from current year
+          const currentYearTeams = teamsToShow.filter(team => 
+            parseInt(team.season) === currentYear
           );
+          
+          if (currentYearTeams.length > 0) {
+            // If multiple teams from current year, select the first one
+            teamToSelect = currentYearTeams[0];
+          } else {
+            // Select the team with the most recent season
+            teamToSelect = teamsToShow.reduce((latest, current) => 
+              parseInt(current.season) > parseInt(latest.season) ? current : latest
+            );
+          }
           
           console.log('Team to select:', teamToSelect);
           

@@ -130,6 +130,40 @@ export const fetchPlayerStats = async (playerKey) => {
   }
 };
 
+// Fetch team roster with player points through proxy
+export const fetchTeamRosterWithPoints = async (teamKey) => {
+  try {
+    const token = await getAccessToken();
+    if (!token) {
+      throw new Error('No access token available');
+    }
+    
+    console.log('Fetching team roster with points with token and teamKey:', { teamKey });
+    
+    const response = await fetch(`/api/yahoo?endpoint=team/${teamKey}/roster/players/stats`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Yahoo API proxy response for roster with points:', { status: response.status });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Yahoo API proxy error for roster with points:', errorData);
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData.details || errorData.error || 'Unknown error'}`);
+    }
+    
+    const result = await response.json();
+    console.log('Yahoo API proxy success for roster with points, data length:', typeof result.data === 'string' ? result.data.length : 'JSON');
+    return result.data;
+  } catch (error) {
+    console.error('Error fetching team roster with points:', error);
+    throw error;
+  }
+};
+
 // Fetch league standings through proxy
 export const fetchLeagueStandings = async (leagueKey) => {
   try {
